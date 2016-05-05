@@ -1,0 +1,49 @@
+apply plugin: 'java'
+apply plugin: 'checkstyle'
+apply plugin: 'pmd'
+apply plugin: 'findbugs'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+version = '0.1'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile 'net.bytebuddy:byte-buddy:1.3.17'
+    testCompile 'junit:junit:4.11'
+}
+
+checkstyle {
+    toolVersion = '6.17'
+    configFile = file("config/checkstyle/checkstyle.xml")
+    sourceSets = [project.sourceSets.main]
+    configProperties = [
+            "header"     : "HEADER.txt",
+            "cache.file" : "build/checkstyle/checkstyle.cache"
+    ]
+}
+
+pmd {
+    ignoreFailures = true
+    toolVersion = "5.4.1"
+    sourceSets = [sourceSets.main]
+    reportsDir = file("$project.buildDir/reports/pmd")
+}
+
+findbugs {
+    ignoreFailures = true
+    toolVersion = "3.0.1"
+    sourceSets = [sourceSets.main]
+    reportsDir = file("$project.buildDir/reports/findbugs")
+    effort = "max"
+}
+
+tasks.withType(FindBugs) {
+    reports {
+        xml.enabled = false
+        html.enabled = true
+    }
+}
