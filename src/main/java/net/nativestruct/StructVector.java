@@ -34,6 +34,7 @@ import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.nativestruct.implementation.field.Field;
 import net.nativestruct.implementation.field.Fields;
 import net.nativestruct.sorting.AbstractSortedSubstitution;
+import net.nativestruct.sorting.OrderingSubstitution;
 
 /**
  * Encapsulates a vector of structures of primitive types.
@@ -578,18 +579,10 @@ public final class StructVector<T> {
         /**
          * Reorder struct records by using substitution index array.
          *
-         * @param indexes Substitution index array.
+         * @param substitution Substitution index array.
          */
-        private void reorderWithSubstitution(int[] indexes) {
-            for (int i = 0; i < indexes.length; i++) {
-                int row = indexes[i];
-                if (i != row) {
-                    swapRows(i, row);
-                    int temp = indexes[row];
-                    indexes[row] = row;
-                    indexes[i] = temp;
-                }
-            }
+        private void reorderWithSubstitution(OrderingSubstitution substitution) {
+            substitution.reorder(this::swapRows);
         }
 
         /**
@@ -621,5 +614,4 @@ public final class StructVector<T> {
             }
         }
     }
-
 }

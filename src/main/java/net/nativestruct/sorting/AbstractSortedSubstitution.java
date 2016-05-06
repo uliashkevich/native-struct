@@ -30,7 +30,7 @@ import java.util.Comparator;
  * It returns index substitution array, which is used to reorder struct records.
  */
 public abstract class AbstractSortedSubstitution {
-    private static final int INSERTION_SORT_THRESHOLD = 1;
+    private static final int INSERTION_SORT_THRESHOLD = 10;
 
     private final IndexedFieldComparator comparator;
     private final int[] indexes;
@@ -53,7 +53,7 @@ public abstract class AbstractSortedSubstitution {
      *
      * @return Substitution array, which can be used to reorder struct records.
      */
-    public final int[] substitution() {
+    public final OrderingSubstitution substitution() {
         for (int i = 0; i < indexes.length; i++) {
             indexes[i] = i;
         }
@@ -64,7 +64,7 @@ public abstract class AbstractSortedSubstitution {
             shadow[indexes[i]] = i;
         }
 
-        return shadow;
+        return new IndexBasedSubstitution(indexes, shadow);
     }
 
     /**

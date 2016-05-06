@@ -1,5 +1,8 @@
 package net.nativestruct;
 
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
 import net.nativestruct.implementation.field.Field;
 import org.junit.Test;
 
@@ -337,27 +340,13 @@ public class StructVectorTest {
         StructDirect accessor = struct.accessor();
 
         int index = -1;
-        accessor.current(++index);
-        accessor.setInt(20);
-        accessor.setString("33");
-        accessor.current(++index);
-        accessor.setInt(10);
-        accessor.setString("44");
-        accessor.current(++index);
-        accessor.setInt(60);
-        accessor.setString("55");
-        accessor.current(++index);
-        accessor.setInt(40);
-        accessor.setString("66");
-        accessor.current(++index);
-        accessor.setInt(30);
-        accessor.setString("77");
-        accessor.current(++index);
-        accessor.setInt(70);
-        accessor.setString("88");
-        accessor.current(++index);
-        accessor.setInt(50);
-        accessor.setString("99");
+        updateIntegerAndString(accessor, ++index, 20, "33");
+        updateIntegerAndString(accessor, ++index, 10, "44");
+        updateIntegerAndString(accessor, ++index, 60, "55");
+        updateIntegerAndString(accessor, ++index, 40, "66");
+        updateIntegerAndString(accessor, ++index, 30, "77");
+        updateIntegerAndString(accessor, ++index, 70, "88");
+        updateIntegerAndString(accessor, ++index, 50, "99");
 
         struct.sort(struct.field("int"));
 
@@ -368,5 +357,45 @@ public class StructVectorTest {
 
         assertArrayEquals(new int[]{20, 10, 60, 40, 30, 70, 50, 0}, struct.integers());
         assertArrayEquals(new Object[]{"33", "44", "55", "66", "77", "88", "99", null}, struct.objects());
+    }
+
+    @Test
+    public void stableSortTest() {
+        StructVector<StructDirect> struct = new StructVector<>(StructDirect.class, 16);
+        struct.resize(14);
+        StructDirect accessor = struct.accessor();
+
+        int index = -1;
+        updateIntegerAndString(accessor, ++index, 20, "33");
+        updateIntegerAndString(accessor, ++index, 10, "44");
+        updateIntegerAndString(accessor, ++index, 60, "55");
+        updateIntegerAndString(accessor, ++index, 40, "66");
+        updateIntegerAndString(accessor, ++index, 30, "77");
+        updateIntegerAndString(accessor, ++index, 70, "88");
+        updateIntegerAndString(accessor, ++index, 50, "99");
+
+        updateIntegerAndString(accessor, ++index, 20, "331");
+        updateIntegerAndString(accessor, ++index, 10, "441");
+        updateIntegerAndString(accessor, ++index, 60, "551");
+        updateIntegerAndString(accessor, ++index, 40, "661");
+        updateIntegerAndString(accessor, ++index, 30, "771");
+        updateIntegerAndString(accessor, ++index, 70, "881");
+        updateIntegerAndString(accessor, ++index, 50, "991");
+
+        struct.sort(struct.field("int"));
+
+        assertEquals(Arrays.asList(
+                        10, 10, 20, 20, 30, 30, 40, 40, 50, 50, 60, 60, 70, 70, 0, 0),
+                Arrays.stream(struct.integers()).boxed().collect(Collectors.toList()));
+        assertEquals(Arrays.asList(
+                        "44", "441", "33", "331", "77", "771", "66", "661",
+                        "99", "991", "55", "551", "88", "881", null, null),
+                Arrays.stream(struct.objects()).collect(Collectors.toList()));
+    }
+
+    private void updateIntegerAndString(StructDirect accessor, int n, int integer, String string) {
+        accessor.current(n);
+        accessor.setInt(integer);
+        accessor.setString(string);
     }
 }
