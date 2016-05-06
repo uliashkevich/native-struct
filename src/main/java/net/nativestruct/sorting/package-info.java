@@ -21,33 +21,4 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package net.nativestruct;
-
-/**
- * Struct arrays holder.
- */
-public interface ArrayHolder {
-    /**
-     * @return The number of elements in vector. The actual reserved number of elements may be
-     *         larger than that.
-     */
-    int size();
-
-    /**
-     * @return An array holding all integer fields. Fields are laid out sequentially with
-     *         respect to field ordering specified in {@link net.nativestruct.StructField}.
-     */
-    int[] integers();
-
-    /**
-     * @return An array holding all double fields. Fields are laid out sequentially with respect
-     * to field ordering specified in {@link net.nativestruct.StructField}.
-     */
-    double[] doubles();
-
-    /**
-     * @return An array holding all object fields. Fields are laid out sequentially with respect
-     * to field ordering specified in {@link net.nativestruct.StructField}.
-     */
-    Object[] objects();
-}
+package net.nativestruct.sorting;

@@ -90,12 +90,13 @@ public final class FieldOrdering {
     }
 
     /**
-     * Creates {@link net.nativestruct.implementation.field.Field} instance with the current field index.
+     * Creates {@link net.nativestruct.implementation.field.Field} instance with the current field
+     * index.
      *
      * @param counter Counter instance, which holds the number of struct fields of each type.
      * @return New field instance.
      */
     public Field createFieldWithIndex(FieldCounter counter) {
-        return new Field(assignIndex(counter), counter, accessors);
+        return new Field(name, type, assignIndex(counter), counter, accessors);
     }
 }

@@ -32,20 +32,56 @@ import net.nativestruct.AbstractStruct;
 * Encapsulated accessor methods of a struct field.
 */
 public class Field {
+    private String name;
+    private Class<?> type;
     private int index;
     private FieldCounts counts;
     private List<Accessor> accessors;
 
     /**
      * Construct field object with field index and the counter object.
+     * @param name Field name.
+     * @param type Field type.
      * @param index Field index among the fields with the same type.
      * @param counts File counting object.
      * @param accessors Accessors list.
      */
-    public Field(int index, FieldCounts counts, List<Accessor> accessors) {
+    public Field(String name, Class<?> type, int index,
+                 FieldCounts counts, List<Accessor> accessors) {
+        this.name = name;
+        this.type = type;
         this.index = index;
         this.counts = counts;
         this.accessors = accessors;
+    }
+
+    /**
+     * @return Field name.
+     */
+    public final String name() {
+        return name;
+    }
+
+    /**
+     * @return Field index.
+     */
+    public final int index() {
+        return index;
+    }
+
+    /**
+     * @param aType A type.
+     * @return If the field has the given type.
+     */
+    public final boolean isType(Class<?> aType) {
+        return type == aType;
+    }
+
+    /**
+     * @return Is the field type primitive.
+     */
+    public final boolean isPrimitive() {
+        return type.isPrimitive();
     }
 
     /**

@@ -51,7 +51,7 @@ public final class Fields {
     public Fields(Class<?> type) {
         this.fields = buildFields(
                 buildFieldOrdering(type,
-                buildAccessorTypes(type)));
+                        buildAccessorTypes(type)));
     }
 
     private Map<String, List<Accessor>> buildAccessorTypes(Class<?> type) {
@@ -156,6 +156,22 @@ public final class Fields {
      */
     public int objectFields() {
         return counter.fieldsOf(Object.class);
+    }
+
+    /**
+     * @param field Field instance.
+     * @return Whether the given field belongs to the field list.
+     */
+    public boolean hasField(Field field) {
+        return fields.containsValue(field);
+    }
+
+    /**
+     * @param name Field name.
+     * @return Field instance by name.
+     */
+    public Field field(String name) {
+        return fields.get(name);
     }
 
     /**
