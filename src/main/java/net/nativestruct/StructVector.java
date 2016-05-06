@@ -304,7 +304,7 @@ public final class StructVector<T> {
      * @param field Object field used for sorting.
      * @param comparator Comparator used for the field values comparison.
      */
-    public void sort(Field field, Comparator<?> comparator) {
+    public <U> void sort(Field field, Comparator<U> comparator) {
         holder.objectSort(fields.objectFields(), field.index(), comparator);
     }
 

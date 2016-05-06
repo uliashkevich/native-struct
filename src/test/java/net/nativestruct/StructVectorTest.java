@@ -360,6 +360,29 @@ public class StructVectorTest {
     }
 
     @Test
+    public void sortReverseTest() {
+        StructVector<StructDirect> struct = new StructVector<>(StructDirect.class, 8);
+        struct.resize(7);
+        StructDirect accessor = struct.accessor();
+
+        int index = -1;
+        updateIntegerAndString(accessor, ++index, 20, "33");
+        updateIntegerAndString(accessor, ++index, 10, "44");
+        updateIntegerAndString(accessor, ++index, 60, "55");
+        updateIntegerAndString(accessor, ++index, 40, "66");
+        updateIntegerAndString(accessor, ++index, 30, "77");
+        updateIntegerAndString(accessor, ++index, 70, "88");
+        updateIntegerAndString(accessor, ++index, 50, "99");
+
+        struct.sort(struct.field("string"), (String left, String right) -> right.compareTo(left));
+
+        assertEquals(Arrays.asList(50, 70, 30, 40, 60, 10, 20, 0),
+                Arrays.stream(struct.integers()).boxed().collect(Collectors.toList()));
+        assertEquals(Arrays.asList("99", "88", "77", "66", "55", "44", "33", null),
+                Arrays.stream(struct.objects()).collect(Collectors.toList()));
+    }
+
+    @Test
     public void stableSortTest() {
         StructVector<StructDirect> struct = new StructVector<>(StructDirect.class, 16);
         struct.resize(14);
