@@ -32,6 +32,8 @@ public final class FieldCounter implements FieldCounts {
     private int doubles;
     private int objects;
 
+    private int composites;
+
     @Override
     public int fieldsOf(Class<?> type) {
         int count;
@@ -45,6 +47,13 @@ public final class FieldCounter implements FieldCounts {
             throw new AssertionError("Unsupported type: " + type);
         }
         return count;
+    }
+
+    /**
+     * @return The number of child struct fields.
+     */
+    public int composites() {
+        return composites;
     }
 
     /**
@@ -65,5 +74,14 @@ public final class FieldCounter implements FieldCounts {
             throw new AssertionError("Unsupported type: " + type);
         }
         return index;
+    }
+
+    /**
+     * Increments the number of child struct fields and returns the current index.
+     *
+     * @return New child struct index.
+     */
+    public int incrementComposites() {
+        return composites++;
     }
 }

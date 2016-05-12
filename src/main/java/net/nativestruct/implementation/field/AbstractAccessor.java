@@ -30,8 +30,12 @@ import java.util.List;
 
 import net.bytebuddy.description.modifier.Visibility;
 import net.bytebuddy.dynamic.DynamicType;
+import net.bytebuddy.dynamic.scaffold.InstrumentedType;
+import net.bytebuddy.implementation.Implementation;
+import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 import net.nativestruct.AbstractStruct;
 import net.nativestruct.AccessorType;
+import net.nativestruct.implementation.bytecode.constant.StructGetterByteCodeAppender;
 import net.nativestruct.implementation.bytecode.direct.GetterDirectImplementation;
 import net.nativestruct.implementation.bytecode.direct.SetterDirectImplementation;
 import net.nativestruct.implementation.bytecode.indexed.GetterIndexedImplementation;
@@ -47,6 +51,17 @@ public abstract class AbstractAccessor implements Accessor {
     private String name;
 
     /**
+     * Construct base accessor instance.
+     *
+     * @param type Field type.
+     * @param name Field property name.
+     */
+    protected AbstractAccessor(Class<?> type, String name) {
+        this.type = type;
+        this.name = name;
+    }
+
+    /**
      * Creates {@link AbstractAccessor} instance based on accessor type.
      *
      * @param accessorType Accessor type - getter or setter, indexed or non-indexed.
@@ -55,17 +70,25 @@ public abstract class AbstractAccessor implements Accessor {
      */
     public static Accessor of(AccessorType accessorType, Method method) {
         Accessor result;
-        if (accessorType == AccessorType.GETTER_INDEXED) {
-            result = new GetterIndexed(method);
-        } else if (accessorType == AccessorType.SETTER_INDEXED) {
-            result = new SetterIndexed(method);
-        } else if (accessorType == AccessorType.AUTO && method.getName().startsWith("get")) {
-            result = new GetterDirect(method);
-        } else if (accessorType == AccessorType.AUTO && method.getName().startsWith("set")) {
-            result = new SetterDirect(method);
+        if (AbstractStruct.class.isAssignableFrom(method.getReturnType())) {
+            if (!accessorType.isGetter(method.getName())) {
+                throw new AssertionError("Unsupported composite accessor: " + accessorType);
+            }
+            result = new GetterComposite(method);
         } else {
-            throw new AssertionError(String.format(
-                    "Unsupported accessor type %s for method %s", accessorType, method.getName()));
+            String name = method.getName();
+            if (accessorType.isGetter(name)) {
+                result = new GetterDirect(method);
+            } else if (accessorType.isSetter(name)) {
+                result = new SetterDirect(method);
+            } else if (accessorType == AccessorType.GETTER_INDEXED) {
+                result = new GetterIndexed(method);
+            } else if (accessorType == AccessorType.SETTER_INDEXED) {
+                result = new SetterIndexed(method);
+            } else {
+                throw new AssertionError(String.format(
+                        "Unsupported accessor type %s for method %s", accessorType, name));
+            }
         }
         return result;
     }
@@ -92,16 +115,13 @@ public abstract class AbstractAccessor implements Accessor {
 
     /**
      * Checks that the accessor type is supported.
+     *  @param parameterType Accessor type.
      *
-     * @param parameterType Accessor type.
-     * @param method Accessor method declaration.
      */
-    protected final void checkTypeAndAssign(Class<?> parameterType, Method method) {
+    protected final void checkSupportedType(Class<?> parameterType) {
         if (parameterType.isPrimitive() && !SUPPORTED_TYPES.contains(parameterType)) {
             throw new AssertionError("Unsupported primitive type: " + parameterType);
         }
-        this.type = parameterType;
-        this.name = method.getName();
     }
 
     /**
@@ -121,12 +141,14 @@ public abstract class AbstractAccessor implements Accessor {
      *
      * @param method     Accessor method declaration.
      * @param paramCount Expected parameter count.
+     * @return Method parameter.
      */
-    protected final void checkParameterCount(Method method, int paramCount) {
+    protected static Method checkParameterCount(Method method, int paramCount) {
         if (method.getParameterCount() != paramCount) {
             throw new AssertionError(String.format(
                     "Accessor method %s should have %d parameters", method, paramCount));
         }
+        return method;
     }
 
     /**
@@ -139,9 +161,10 @@ public abstract class AbstractAccessor implements Accessor {
          * @param method Accessor interface method.
          */
         public GetterIndexed(Method method) {
+            super(method.getReturnType(), method.getName());
             checkParameterCount(method, 1);
             checkIndexParameter(method);
-            checkTypeAndAssign(method.getReturnType(), method);
+            checkSupportedType(method.getReturnType());
         }
 
         @Override
@@ -165,9 +188,9 @@ public abstract class AbstractAccessor implements Accessor {
          * @param method Accessor interface method.
          */
         public SetterIndexed(Method method) {
-            checkParameterCount(method, 2);
+            super(checkParameterCount(method, 2).getParameterTypes()[1], method.getName());
             checkIndexParameter(method);
-            checkTypeAndAssign(method.getParameterTypes()[1], method);
+            checkSupportedType(method.getParameterTypes()[1]);
         }
 
         @Override
@@ -191,8 +214,9 @@ public abstract class AbstractAccessor implements Accessor {
          * @param method Accessor interface method.
          */
         public GetterDirect(Method method) {
+            super(method.getReturnType(), method.getName());
             checkParameterCount(method, 0);
-            checkTypeAndAssign(method.getReturnType(), method);
+            checkSupportedType(method.getReturnType());
         }
 
         @Override
@@ -216,8 +240,8 @@ public abstract class AbstractAccessor implements Accessor {
          * @param method Accessor interface method.
          */
         public SetterDirect(Method method) {
-            checkParameterCount(method, 1);
-            checkTypeAndAssign(method.getParameterTypes()[0], method);
+            super(checkParameterCount(method, 1).getParameterTypes()[0], method.getName());
+            checkSupportedType(method.getParameterTypes()[0]);
         }
 
         @Override
@@ -228,6 +252,40 @@ public abstract class AbstractAccessor implements Accessor {
                     .withParameters(getType())
                     .intercept(new SetterDirectImplementation(
                             getType(), counts.fieldsOf(getType()), index));
+        }
+    }
+
+    /**
+     * Represents child struct accessor method.
+     */
+    public static final class GetterComposite extends AbstractAccessor {
+        /**
+         * Constructs getter.
+         *
+         * @param method Accessor interface method.
+         */
+        public GetterComposite(Method method) {
+            super(method.getReturnType(), method.getName());
+            checkParameterCount(method, 0);
+        }
+
+        @Override
+        public DynamicType.Builder<AbstractStruct> install(
+                DynamicType.Builder<AbstractStruct> struct, int index, FieldCounts counts) {
+            return struct
+                    .defineMethod(getName(), getType(), Visibility.PUBLIC)
+                    .withParameters(Arrays.<Type>asList())
+                    .intercept(new Implementation() {
+                        @Override
+                        public ByteCodeAppender appender(Target target) {
+                            return new StructGetterByteCodeAppender(getType(), index);
+                        }
+
+                        @Override
+                        public InstrumentedType prepare(InstrumentedType type) {
+                            return type;
+                        }
+                    });
         }
     }
 }

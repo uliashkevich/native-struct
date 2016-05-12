@@ -67,6 +67,9 @@ public abstract class AbstractImplementation implements Implementation {
     public static final MethodDescription.InDefinedShape STRUCT_CURRENT
             = STRUCT_METHODS.filter(named("current").and(returns(int.class))).getOnly();
 
+    public static final MethodDescription.InDefinedShape STRUCT_COMPOSITE
+            = STRUCT_METHODS.filter(named("composite")).getOnly();
+
     public static final Map<Class<?>, MethodDescription.InDefinedShape> FIELD_GETTERS;
     public static final Map<Class<?>, MethodDescription.InDefinedShape> FIELD_SETTERS;
 

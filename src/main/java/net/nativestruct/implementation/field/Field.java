@@ -31,7 +31,7 @@ import net.nativestruct.AbstractStruct;
 /**
 * Encapsulated accessor methods of a struct field.
 */
-public class Field {
+public class Field implements FieldLike {
     private String name;
     private Class<?> type;
     private int index;
@@ -84,12 +84,12 @@ public class Field {
         return type.isPrimitive();
     }
 
-    /**
-     * Builds bytecode for struct fields accessor methods.
-     *
-     * @param struct Accessor methods bytecode builder.
-     * @return New instance of build.
-     */
+    @Override
+    public final boolean isComposite() {
+        return false;
+    }
+
+    @Override
     public final DynamicType.Builder<AbstractStruct> installAccessors(
             DynamicType.Builder<AbstractStruct> struct) {
 

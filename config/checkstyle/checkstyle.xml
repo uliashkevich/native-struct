@@ -187,7 +187,7 @@
         <module name="IllegalTokenText" />
         <module name="InnerAssignment"/>
         <module name="MagicNumber">
-            <property name="ignoreNumbers" value="-1,0,1,2,3,4,5,8,16"/>
+            <property name="ignoreNumbers" value="-1,0,1,2,3,4,5,8,15,16,31,32"/>
         </module>
         <module name="MissingSwitchDefault"/>
         <module name="ModifiedControlVariable"/>

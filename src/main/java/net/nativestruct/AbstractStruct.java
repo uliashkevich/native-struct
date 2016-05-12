@@ -34,12 +34,13 @@ public abstract class AbstractStruct {
     private double[]    doubles;
     private Object[]    objects;
 
-    private int         current = -1;
+    private AbstractStruct[]    composites;
+    private int                 current = -1;
 
     /**
      * @return Current record index. By default it equals -1.
      */
-    public final int current() {
+    protected final int current() {
         return current;
     }
 
@@ -48,9 +49,20 @@ public abstract class AbstractStruct {
      *
      * @param index A new record index.
      */
-    public final void current(int index) {
-        checkIndexBounds(index);
+    final void current(int index) {
         this.current = index;
+    }
+
+    /**
+     * Checks that the index falls within vector bounds. Method is called from dynamically
+     * generated field accessors.
+     *
+     * @param index Index in vector.
+     */
+    protected final void checkIndexBounds(int index) {
+        if (index < 0 || index >= size) {
+            throw new ArrayIndexOutOfBoundsException(index);
+        }
     }
 
     /**
@@ -63,18 +75,18 @@ public abstract class AbstractStruct {
         this.integers = holder.integers();
         this.doubles = holder.doubles();
         this.objects = holder.objects();
+        this.composites = holder.composites();
         this.current = -1;
     }
 
     /**
-     * Checks that the index falls within vector bounds.
+     * Getter method of child struct field.
      *
-     * @param index Index in vector.
+     * @param index Child struct index.
+     * @return Child struct accessor object.
      */
-    protected final void checkIndexBounds(int index) {
-        if (index < 0 || index >= this.size) {
-            throw new ArrayIndexOutOfBoundsException(index);
-        }
+    protected final AbstractStruct composite(int index) {
+        return this.composites[index];
     }
 
     /**

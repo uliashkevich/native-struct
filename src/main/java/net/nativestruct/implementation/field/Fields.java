@@ -23,118 +23,120 @@
  */
 package net.nativestruct.implementation.field;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import net.bytebuddy.ByteBuddy;
 import net.bytebuddy.dynamic.DynamicType;
+import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.nativestruct.AbstractStruct;
-import net.nativestruct.StructField;
 
 /**
  * Encapsulates struct fields.
  * It is build with the following sequence:
  * Name -> Accessor type -> Type -> Field counts -> Indexes -> Accessor
  */
-public final class Fields {
-    private Map<String, Field> fields;
-    private FieldCounter counter = new FieldCounter();
+public final class Fields implements FieldLike {
+    private final Class<?> type;
+    private final int index;
+    private Map<String, FieldLike> fields;
+    private FieldCounter counter;
+    private List<Accessor> accessors;
+    private List<Fields> composites;
 
     /**
      * Initializes instance with the list of accessor methods group by struct field names.
      *
      * @param type Map between field names and accessor methods.
+     * @param index Composite property index inside composites array.
+     * @param counter Field counter object.
+     * @param accessors The list of the field accessor methods.
+     * @param fields Child fields list.
      */
-    public Fields(Class<?> type) {
-        this.fields = buildFields(
-                buildFieldOrdering(type,
-                        buildAccessorTypes(type)));
+    Fields(Class<?> type, int index, FieldCounter counter, List<Accessor> accessors,
+           Map<String, FieldLike> fields) {
+        this.type = type;
+        this.index = index;
+        this.counter = counter;
+        this.accessors = accessors;
+
+        this.fields = fields;
+        this.composites = fields.values().stream()
+                .filter(FieldLike::isComposite)
+                .map(field -> (Fields) field)
+                .collect(Collectors.toList());
+
+        if (!type.isInterface() && !AbstractStruct.class.isAssignableFrom(type)) {
+            throw new IllegalArgumentException("Invalid accessor base type: " + type);
+        }
     }
 
-    private Map<String, List<Accessor>> buildAccessorTypes(Class<?> type) {
-        Map<String, List<Accessor>> result = new HashMap<>();
-        forEachAccessor(type, (method, annotation) -> {
-            List<Accessor> accessors = result.computeIfAbsent(
-                    propertyName(method, annotation), name -> new ArrayList<>());
-            Accessor accessor = AbstractAccessor.of(annotation.accessor(), method);
-            if (!accessors.isEmpty()) {
-                accessor.checkCompatibility(accessors.get(0));
-            }
-            accessors.add(accessor);
-        });
+    @Override
+    public boolean isComposite() {
+        return true;
+    }
+
+    @Override
+    public DynamicType.Builder<AbstractStruct> installAccessors(
+            DynamicType.Builder<AbstractStruct> struct) {
+
+        DynamicType.Builder<AbstractStruct> result = struct;
+        for (Accessor accessor : accessors) {
+            result = accessor.install(result, index, counter);
+        }
         return result;
     }
 
-    private List<FieldOrdering> buildFieldOrdering(
-            Class<?> type, Map<String, List<Accessor>> accessorTypes) {
+    /**
+     * Builds and returns a list of all accessors, including child struct fields and their children.
+     *
+     * @return A list of accessors.
+     */
+    public List<AbstractStruct> buildAccessors() {
+        List<AbstractStruct> result = new ArrayList<>();
 
-        Map<String, FieldOrdering> orderings = new HashMap<>();
-        forEachAccessor(type, (method, annotation) -> {
-            String fieldName = propertyName(method, annotation);
-            FieldOrdering ordering = orderings.computeIfAbsent(fieldName,
-                name -> {
-                    List<Accessor> types = accessorTypes.get(name);
-                    return new FieldOrdering(name, types.get(0).getType(), types);
-                });
-            if (!ordering.updateOrder(annotation.order())) {
-                throw new AssertionError(String.format(
-                    "Ambiguous field ordering: %s.%s", type.getSimpleName(), fieldName));
+        result.add(buildAccessorInstance(bareStruct -> {
+            DynamicType.Builder<AbstractStruct> struct = bareStruct;
+            for (FieldLike field : fields.values()) {
+                struct = field.installAccessors(struct);
             }
-        });
+            return struct;
+        }));
 
-        List<FieldOrdering> orderingsList = new ArrayList<>(orderings.values());
-        Collections.sort(orderingsList,
-            (left, right) -> Integer.compare(left.getOrder(), right.getOrder()));
-        return orderingsList;
-    }
-
-    private String propertyName(Method method, StructField annotation) {
-        String name = annotation.value();
-        if ("".equals(name)) {
-            String methodName = method.getName();
-            if (methodName.startsWith("get") || methodName.startsWith("set")) {
-                name = Character.toLowerCase(methodName.charAt(3)) + methodName.substring(4);
-            } else {
-                throw new RuntimeException(
-                        "Cannot determine struct property for accessor method: " + methodName);
-            }
+        for (Fields composite : composites) {
+            result.addAll(composite.buildAccessors());
         }
-        return name;
+
+        return result;
     }
 
-    private Map<String, Field> buildFields(List<FieldOrdering> orderings) {
-        Map<String, Field> namedFields = new HashMap<>();
-        orderings.stream().forEach(
-            ordering -> namedFields.put(ordering.getName(),
-                ordering.createFieldWithIndex(counter)));
-        return namedFields;
-    }
+    private AbstractStruct buildAccessorInstance(
+            Function<DynamicType.Builder<AbstractStruct>,
+                    DynamicType.Builder<AbstractStruct>> install) {
+        try {
+            DynamicType.Builder<AbstractStruct> bareStruct =
+                    AbstractStruct.class.isAssignableFrom(this.type)
+                            ? new ByteBuddy().subclass((Class<AbstractStruct>) this.type)
+                            : new ByteBuddy().subclass(AbstractStruct.class).implement(this.type);
 
-    private void forEachAccessor(Class<?> type, MethodAnnotationConsumer consumer) {
-        for (Method method : type.getDeclaredMethods()) {
-            StructField annotation = method.getDeclaredAnnotation(StructField.class);
-            if (annotation != null) {
-                consumer.accept(method, annotation);
-            }
+            return install.apply(bareStruct)
+                    .make()
+                    .load(getClass().getClassLoader(), ClassLoadingStrategy.Default.WRAPPER)
+                    .getLoaded()
+                    .newInstance();
+        } catch (InstantiationException | IllegalAccessException e) {
+            throw new RuntimeException("Cannot create accessor for " + this.type, e);
         }
     }
 
     /**
-     * Installs accessor methods implementation for struct fields.
-     *
-     * @param struct Class definition builder.
-     * @return New class builder instance.
+     * @return The number of child struct fields.
      */
-    public DynamicType.Builder<AbstractStruct> installAccessors(
-            DynamicType.Builder<AbstractStruct> struct) {
-        DynamicType.Builder<AbstractStruct> result = struct;
-        for (Field field : fields.values()) {
-            result = field.installAccessors(result);
-        }
-        return result;
+    public int composites() {
+        return counter.composites();
     }
 
     /**
@@ -170,21 +172,8 @@ public final class Fields {
      * @param name Field name.
      * @return Field instance by name.
      */
-    public Field field(String name) {
+    public FieldLike field(String name) {
         return fields.get(name);
     }
 
-    /**
-     * Iterator interface for struct accessor methods.
-     */
-    @FunctionalInterface
-    public interface MethodAnnotationConsumer {
-        /**
-         * Executed for each struct accessor method.
-         *
-         * @param method     Method instance.
-         * @param annotation Struct field annotation.
-         */
-        void accept(Method method, StructField annotation);
-    }
 }

@@ -23,27 +23,25 @@
  */
 package net.nativestruct.implementation.field;
 
-import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Specifies ordering of fields with the same type within an array.
  */
-public final class FieldOrdering {
+public final class FieldOrdering implements Comparable<FieldOrdering> {
     private String name;
-    private Class<?> type;
-    private List<Accessor> accessors;
     private int order = -1;
+    private Supplier<FieldLike> supplier;
 
     /**
      * Constructs ordering instance given a field name.
-     *  @param name Field name.
-     * @param type Field type.
-     * @param accessors The list of field accessors.
+     * @param name Field name.
+     * @param supplier Supplier of field instance.
+     *
      */
-    public FieldOrdering(String name, Class<?> type, List<Accessor> accessors) {
+    public FieldOrdering(String name, Supplier<FieldLike> supplier) {
         this.name = name;
-        this.type = type;
-        this.accessors = accessors;
+        this.supplier = supplier;
     }
 
     /**
@@ -80,23 +78,30 @@ public final class FieldOrdering {
     }
 
     /**
-     * Assigns field index taking into account the field type.
-     *
-     * @param counter Field index counter object.
-     * @return The assigned index.
-     */
-    public int assignIndex(FieldCounter counter) {
-        return counter.increment(type);
-    }
-
-    /**
      * Creates {@link net.nativestruct.implementation.field.Field} instance with the current field
      * index.
      *
-     * @param counter Counter instance, which holds the number of struct fields of each type.
      * @return New field instance.
      */
-    public Field createFieldWithIndex(FieldCounter counter) {
-        return new Field(name, type, assignIndex(counter), counter, accessors);
+    public FieldLike createField() {
+        return supplier.get();
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * order + name.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return obj instanceof FieldOrdering && compareTo((FieldOrdering) obj) == 0;
+    }
+
+    @Override
+    public int compareTo(FieldOrdering other) {
+        int comparison = Integer.compare(order, other.getOrder());
+        return comparison == 0
+                ? name.compareTo(other.getName())
+                : comparison;
     }
 }

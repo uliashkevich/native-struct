@@ -21,37 +21,4 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package net.nativestruct;
-
-/**
- * @author uliashkevich
- */
-public enum AccessorType {
-    AUTO,
-    GETTER,
-    GETTER_INDEXED,
-    SETTER,
-    SETTER_INDEXED;
-
-    /**
-     * Checks whether a method with the given name is property getter.
-     *
-     * @param name Method name.
-     * @return If the method is getter.
-     */
-    public boolean isGetter(String name) {
-        return this == AccessorType.GETTER
-                || (this == AccessorType.AUTO && name.startsWith("get"));
-    }
-
-    /**
-     * Checks whether a method with the given name is property setter.
-     *
-     * @param name Method name.
-     * @return If the method is setter.
-     */
-    public boolean isSetter(String name) {
-        return this == AccessorType.SETTER
-                || (this == AccessorType.AUTO && name.startsWith("set"));
-    }
-}
+package net.nativestruct.implementation.bytecode.constant;

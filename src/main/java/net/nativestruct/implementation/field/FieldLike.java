@@ -21,37 +21,26 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package net.nativestruct;
+package net.nativestruct.implementation.field;
+
+import net.bytebuddy.dynamic.DynamicType;
+import net.nativestruct.AbstractStruct;
 
 /**
- * @author uliashkevich
+ * Common abstraction for struct, child struct and value fields.
  */
-public enum AccessorType {
-    AUTO,
-    GETTER,
-    GETTER_INDEXED,
-    SETTER,
-    SETTER_INDEXED;
+public interface FieldLike {
+    /**
+     * Builds bytecode for struct fields accessor methods.
+     *
+     * @param struct Accessor methods bytecode builder.
+     * @return New instance of build.
+     */
+    DynamicType.Builder<AbstractStruct> installAccessors(
+            DynamicType.Builder<AbstractStruct> struct);
 
     /**
-     * Checks whether a method with the given name is property getter.
-     *
-     * @param name Method name.
-     * @return If the method is getter.
+     * @return If the fields is composite, i.e. it represents a child struct.
      */
-    public boolean isGetter(String name) {
-        return this == AccessorType.GETTER
-                || (this == AccessorType.AUTO && name.startsWith("get"));
-    }
-
-    /**
-     * Checks whether a method with the given name is property setter.
-     *
-     * @param name Method name.
-     * @return If the method is setter.
-     */
-    public boolean isSetter(String name) {
-        return this == AccessorType.SETTER
-                || (this == AccessorType.AUTO && name.startsWith("set"));
-    }
+    boolean isComposite();
 }

@@ -105,8 +105,10 @@ public class StructVectorTest {
         accessor.updateDoubleField(0, 1.5);
         accessor.updateDouble2Field(0, 2.5);
 
-        assertArrayEquals(new int[]{11}, struct.integers());
-        assertArrayEquals(new double[]{2.5, 1.5}, struct.doubles(), 0.0);
+        assertEquals(Arrays.asList(11),
+                Arrays.stream(struct.integers()).boxed().collect(Collectors.toList()));
+        assertEquals(Arrays.asList(1.5, 2.5),
+                Arrays.stream(struct.doubles()).boxed().collect(Collectors.toList()));
     }
 
     public interface StructIntTwoDoubles {
@@ -152,11 +154,11 @@ public class StructVectorTest {
         StructVector<StructDirect> struct = new StructVector<>(StructDirect.class, 2);
         struct.resize(2);
         StructDirect accessor = struct.accessor();
-        accessor.current(1);
+        struct.current(1);
         accessor.setInt(55);
         assertArrayEquals(new int[]{0, 55}, struct.integers());
 
-        accessor.current(0);
+        struct.current(0);
         accessor.setDouble(1.5);
         assertArrayEquals(new double[]{1.5, 0.0}, struct.doubles(), 1e-6);
     }
@@ -204,19 +206,19 @@ public class StructVectorTest {
         StructVector<StructDirect> struct = new StructVector<>(StructDirect.class, 2);
         struct.resize(2);
         StructDirect accessor = struct.accessor();
-        accessor.current(0);
+        struct.current(0);
         accessor.setInt(1);
         accessor.setDouble(1.5);
         accessor.setString("11");
-        accessor.current(1);
+        struct.current(1);
         accessor.setInt(2);
         accessor.setDouble(2.5);
         accessor.setString("22");
 
-        assertEquals(1, accessor.current());
+        assertEquals(1, struct.current());
 
         struct.insert(1, 2);
-        assertEquals(-1, accessor.current());
+        assertEquals(-1, struct.current());
 
         assertArrayEquals(new int[]{1, 0, 0, 2}, struct.integers());
         assertArrayEquals(new double[]{1.5, 0.0, 0.0, 2.5}, struct.doubles(), 1e-6);
@@ -225,24 +227,26 @@ public class StructVectorTest {
 
     @Test
     public void insertLastTest() {
-        StructVector<StructDirect> struct = new StructVector<>(StructDirect.class, 2);
+        StructVector<StructDirect> struct = new StructVector<>(StructDirect.class, 4);
         struct.resize(2);
         StructDirect accessor = struct.accessor();
-        accessor.current(0);
+        struct.current(0);
         accessor.setInt(1);
         accessor.setDouble(1.5);
         accessor.setString("11");
-        accessor.current(1);
+        struct.current(1);
         accessor.setInt(2);
         accessor.setDouble(2.5);
         accessor.setString("22");
 
-        assertEquals(1, accessor.current());
+        assertEquals(1, struct.current());
 
-        int index = struct.insertLast(2);
+        int index = struct.insertLast(1);
+        struct.insertLast();
+
         assertEquals(2, index);
-        assertEquals(-1, accessor.current());
-        accessor.current(index + 1);
+        assertEquals(-1, struct.current());
+        struct.current(index + 1);
         accessor.setInt(3);
         accessor.setDouble(3.5);
         accessor.setString("33");
@@ -258,13 +262,13 @@ public class StructVectorTest {
         struct.resize(4);
         StructDirectIntOnly accessor = struct.accessor();
 
-        accessor.current(0);
+        struct.current(0);
         accessor.setInt(30);
-        accessor.current(1);
+        struct.current(1);
         accessor.setInt(40);
-        accessor.current(2);
+        struct.current(2);
         accessor.setInt(50);
-        accessor.current(3);
+        struct.current(3);
         accessor.setInt(60);
 
         Field intField = struct.field("int");
@@ -285,13 +289,13 @@ public class StructVectorTest {
         struct.resize(4);
         StructDirectDoubleOnly accessor = struct.accessor();
 
-        accessor.current(0);
+        struct.current(0);
         accessor.setDouble(3.5);
-        accessor.current(1);
+        struct.current(1);
         accessor.setDouble(4.5);
-        accessor.current(2);
+        struct.current(2);
         accessor.setDouble(5.5);
-        accessor.current(3);
+        struct.current(3);
         accessor.setDouble(6.5);
 
         Field doubleField = struct.field("double");
@@ -312,13 +316,13 @@ public class StructVectorTest {
         struct.resize(4);
         StructDirectStringOnly accessor = struct.accessor();
 
-        accessor.current(0);
+        struct.current(0);
         accessor.setString("30");
-        accessor.current(1);
+        struct.current(1);
         accessor.setString("40");
-        accessor.current(2);
+        struct.current(2);
         accessor.setString("50");
-        accessor.current(3);
+        struct.current(3);
         accessor.setString("60");
 
         Field stringField = struct.field("string");
@@ -340,13 +344,13 @@ public class StructVectorTest {
         StructDirect accessor = struct.accessor();
 
         int index = -1;
-        updateIntegerAndString(accessor, ++index, 20, "33");
-        updateIntegerAndString(accessor, ++index, 10, "44");
-        updateIntegerAndString(accessor, ++index, 60, "55");
-        updateIntegerAndString(accessor, ++index, 40, "66");
-        updateIntegerAndString(accessor, ++index, 30, "77");
-        updateIntegerAndString(accessor, ++index, 70, "88");
-        updateIntegerAndString(accessor, ++index, 50, "99");
+        updateIntegerAndString(struct, accessor, ++index, 20, "33");
+        updateIntegerAndString(struct, accessor, ++index, 10, "44");
+        updateIntegerAndString(struct, accessor, ++index, 60, "55");
+        updateIntegerAndString(struct, accessor, ++index, 40, "66");
+        updateIntegerAndString(struct, accessor, ++index, 30, "77");
+        updateIntegerAndString(struct, accessor, ++index, 70, "88");
+        updateIntegerAndString(struct, accessor, ++index, 50, "99");
 
         struct.sort(struct.field("int"));
 
@@ -366,13 +370,13 @@ public class StructVectorTest {
         StructDirect accessor = struct.accessor();
 
         int index = -1;
-        updateIntegerAndString(accessor, ++index, 20, "33");
-        updateIntegerAndString(accessor, ++index, 10, "44");
-        updateIntegerAndString(accessor, ++index, 60, "55");
-        updateIntegerAndString(accessor, ++index, 40, "66");
-        updateIntegerAndString(accessor, ++index, 30, "77");
-        updateIntegerAndString(accessor, ++index, 70, "88");
-        updateIntegerAndString(accessor, ++index, 50, "99");
+        updateIntegerAndString(struct, accessor, ++index, 20, "33");
+        updateIntegerAndString(struct, accessor, ++index, 10, "44");
+        updateIntegerAndString(struct, accessor, ++index, 60, "55");
+        updateIntegerAndString(struct, accessor, ++index, 40, "66");
+        updateIntegerAndString(struct, accessor, ++index, 30, "77");
+        updateIntegerAndString(struct, accessor, ++index, 70, "88");
+        updateIntegerAndString(struct, accessor, ++index, 50, "99");
 
         struct.sort(struct.field("string"), (String left, String right) -> right.compareTo(left));
 
@@ -389,21 +393,21 @@ public class StructVectorTest {
         StructDirect accessor = struct.accessor();
 
         int index = -1;
-        updateIntegerAndString(accessor, ++index, 20, "33");
-        updateIntegerAndString(accessor, ++index, 10, "44");
-        updateIntegerAndString(accessor, ++index, 60, "55");
-        updateIntegerAndString(accessor, ++index, 40, "66");
-        updateIntegerAndString(accessor, ++index, 30, "77");
-        updateIntegerAndString(accessor, ++index, 70, "88");
-        updateIntegerAndString(accessor, ++index, 50, "99");
+        updateIntegerAndString(struct, accessor, ++index, 20, "33");
+        updateIntegerAndString(struct, accessor, ++index, 10, "44");
+        updateIntegerAndString(struct, accessor, ++index, 60, "55");
+        updateIntegerAndString(struct, accessor, ++index, 40, "66");
+        updateIntegerAndString(struct, accessor, ++index, 30, "77");
+        updateIntegerAndString(struct, accessor, ++index, 70, "88");
+        updateIntegerAndString(struct, accessor, ++index, 50, "99");
 
-        updateIntegerAndString(accessor, ++index, 20, "331");
-        updateIntegerAndString(accessor, ++index, 10, "441");
-        updateIntegerAndString(accessor, ++index, 60, "551");
-        updateIntegerAndString(accessor, ++index, 40, "661");
-        updateIntegerAndString(accessor, ++index, 30, "771");
-        updateIntegerAndString(accessor, ++index, 70, "881");
-        updateIntegerAndString(accessor, ++index, 50, "991");
+        updateIntegerAndString(struct, accessor, ++index, 20, "331");
+        updateIntegerAndString(struct, accessor, ++index, 10, "441");
+        updateIntegerAndString(struct, accessor, ++index, 60, "551");
+        updateIntegerAndString(struct, accessor, ++index, 40, "661");
+        updateIntegerAndString(struct, accessor, ++index, 30, "771");
+        updateIntegerAndString(struct, accessor, ++index, 70, "881");
+        updateIntegerAndString(struct, accessor, ++index, 50, "991");
 
         struct.sort(struct.field("int"));
 
@@ -416,9 +420,42 @@ public class StructVectorTest {
                 Arrays.stream(struct.objects()).collect(Collectors.toList()));
     }
 
-    private void updateIntegerAndString(StructDirect accessor, int n, int integer, String string) {
-        accessor.current(n);
+    private void updateIntegerAndString(StructVector struct, StructDirect accessor, int n, int integer, String string) {
+        struct.current(n);
         accessor.setInt(integer);
         accessor.setString(string);
+    }
+
+    public static abstract class StructParent extends AbstractStruct {
+        @StructField
+        public abstract StructDirect getFirst();
+        @StructField
+        public abstract StructDirect getSecond();
+    }
+
+    @Test
+    public void compositeTest() {
+        StructVector<StructParent> struct = new StructVector<>(StructParent.class, 3);
+        struct.resize(2);
+        StructParent accessor = struct.accessor();
+        StructDirect first = accessor.getFirst();
+        StructDirect second = accessor.getSecond();
+
+        struct.current(0);
+        first.setInt(15);
+        second.setInt(25);
+        first.setString("aa");
+        second.setString("bb");
+
+        struct.current(1);
+        first.setInt(35);
+        second.setInt(45);
+        first.setString("cc");
+        second.setString("dd");
+
+        assertEquals(Arrays.asList(15, 25, 35, 45, 0, 0),
+                Arrays.stream(struct.integers()).boxed().collect(Collectors.toList()));
+        assertEquals(Arrays.asList("aa", "bb", "cc", "dd", null, null),
+                Arrays.stream(struct.objects()).collect(Collectors.toList()));
     }
 }

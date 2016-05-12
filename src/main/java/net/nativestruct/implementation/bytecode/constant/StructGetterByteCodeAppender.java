@@ -21,11 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package net.nativestruct.implementation.bytecode.direct;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+package net.nativestruct.implementation.bytecode.constant;
 
 import net.bytebuddy.description.method.MethodDescription;
 import net.bytebuddy.description.type.TypeDescription;
@@ -38,61 +34,40 @@ import net.bytebuddy.implementation.bytecode.member.MethodInvocation;
 import net.bytebuddy.implementation.bytecode.member.MethodReturn;
 import net.bytebuddy.implementation.bytecode.member.MethodVariableAccess;
 import net.bytebuddy.jar.asm.MethodVisitor;
+import net.nativestruct.implementation.bytecode.AbstractImplementation;
 
 /**
- * Bytecode generator of the int field getter.
+ * Bytecode generator of a child struct field getter.
  */
-public final class GetterDirectByteCodeAppender implements ByteCodeAppender {
-
-    private int fields;
+public class StructGetterByteCodeAppender implements ByteCodeAppender {
+    private Class<?> type;
     private int index;
-    private MethodDescription.InDefinedShape current;
-    private MethodDescription.InDefinedShape getter;
-    private final TypeDescription.ForLoadedType returning;
 
     /**
      * Construct bytecode appender instance.
      *
-     * @param fields The number of integer fields in a struct.
-     * @param index Index of the field being accessed.
-     * @param current Descriptor of field `current`.
-     * @param getter Method description representing array accessor in the
-     *               {@link net.nativestruct.AbstractStruct} instance.
-     * @param returning Return type description.
+     * @param type Child struct type.
+     * @param index Child struct field index within the child struct array.
      */
-    public GetterDirectByteCodeAppender(int fields, int index,
-                                        MethodDescription.InDefinedShape current,
-                                        MethodDescription.InDefinedShape getter,
-                                        TypeDescription.ForLoadedType returning) {
-        this.fields = fields;
+    public StructGetterByteCodeAppender(Class<?> type, int index) {
+        this.type = type;
         this.index = index;
-        this.current = current;
-        this.getter = getter;
-        this.returning = returning;
     }
 
     @Override
-    public Size apply(MethodVisitor methodVisitor,
+    public final Size apply(MethodVisitor methodVisitor,
                       Implementation.Context context,
                       MethodDescription method) {
 
-        List<StackManipulation> commands = new ArrayList<>(Arrays.asList(
+        TypeDescription returning = new TypeDescription.ForLoadedType(type);
+
+        StackManipulation.Size stackSize = new StackManipulation.Compound(
                 MethodVariableAccess.REFERENCE.loadOffset(0),
-                IntegerConstant.forValue(fields),
-                MethodVariableAccess.REFERENCE.loadOffset(0),
-                MethodInvocation.invoke(current),
                 IntegerConstant.forValue(index),
-                MethodInvocation.invoke(getter)
-        ));
-
-        if (!returning.isPrimitive()) {
-            commands.add(TypeCasting.to(returning));
-        }
-
-        commands.add(MethodReturn.returning(returning));
-
-        StackManipulation.Size stackSize = new StackManipulation.Compound(commands)
-                .apply(methodVisitor, context);
+                MethodInvocation.invoke(AbstractImplementation.STRUCT_COMPOSITE),
+                TypeCasting.to(returning),
+                MethodReturn.returning(returning)
+        ).apply(methodVisitor, context);
 
         return new Size(stackSize.getMaximalSize(), method.getStackSize());
     }

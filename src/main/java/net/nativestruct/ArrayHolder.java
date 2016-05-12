@@ -50,4 +50,9 @@ public interface ArrayHolder {
      * to field ordering specified in {@link net.nativestruct.StructField}.
      */
     Object[] objects();
+
+    /**
+     * @return An array holding on child struct fields.
+     */
+    AbstractStruct[] composites();
 }

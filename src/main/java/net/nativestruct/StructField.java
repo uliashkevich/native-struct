@@ -49,10 +49,4 @@ public @interface StructField {
      *         of a single field should have the same order, or it may be omitted.
      */
     int order() default -1;
-
-    /**
-     * @return Fields of the same type can be partitioned into different array by specifying
-     *         different groups.
-     */
-    int group() default -1;
 }
