@@ -218,7 +218,7 @@ public class StructVectorTest {
         assertEquals(1, struct.current());
 
         struct.insert(1, 2);
-        assertEquals(-1, struct.current());
+        assertEquals(1, struct.current());
 
         assertArrayEquals(new int[]{1, 0, 0, 2}, struct.integers());
         assertArrayEquals(new double[]{1.5, 0.0, 0.0, 2.5}, struct.doubles(), 1e-6);
@@ -245,7 +245,7 @@ public class StructVectorTest {
         struct.insertLast();
 
         assertEquals(2, index);
-        assertEquals(-1, struct.current());
+        assertEquals(3, struct.current());
         struct.current(index + 1);
         accessor.setInt(3);
         accessor.setDouble(3.5);
@@ -352,12 +352,12 @@ public class StructVectorTest {
         updateIntegerAndString(struct, accessor, ++index, 70, "88");
         updateIntegerAndString(struct, accessor, ++index, 50, "99");
 
-        struct.sort(struct.field("int"));
+        struct.sort("int");
 
         assertArrayEquals(new int[]{10, 20, 30, 40, 50, 60, 70, 0}, struct.integers());
         assertArrayEquals(new Object[]{"44", "33", "77", "66", "99", "55", "88", null}, struct.objects());
 
-        struct.sort(struct.field("string"));
+        struct.sort("string");
 
         assertArrayEquals(new int[]{20, 10, 60, 40, 30, 70, 50, 0}, struct.integers());
         assertArrayEquals(new Object[]{"33", "44", "55", "66", "77", "88", "99", null}, struct.objects());
@@ -378,7 +378,7 @@ public class StructVectorTest {
         updateIntegerAndString(struct, accessor, ++index, 70, "88");
         updateIntegerAndString(struct, accessor, ++index, 50, "99");
 
-        struct.sort(struct.field("string"), (String left, String right) -> right.compareTo(left));
+        struct.sort("string", (String left, String right) -> right.compareTo(left));
 
         assertEquals(Arrays.asList(50, 70, 30, 40, 60, 10, 20, 0),
                 Arrays.stream(struct.integers()).boxed().collect(Collectors.toList()));
@@ -409,7 +409,7 @@ public class StructVectorTest {
         updateIntegerAndString(struct, accessor, ++index, 70, "881");
         updateIntegerAndString(struct, accessor, ++index, 50, "991");
 
-        struct.sort(struct.field("int"));
+        struct.sort("int");
 
         assertEquals(Arrays.asList(
                         10, 10, 20, 20, 30, 30, 40, 40, 50, 50, 60, 60, 70, 70, 0, 0),
@@ -457,5 +457,11 @@ public class StructVectorTest {
                 Arrays.stream(struct.integers()).boxed().collect(Collectors.toList()));
         assertEquals(Arrays.asList("aa", "bb", "cc", "dd", null, null),
                 Arrays.stream(struct.objects()).collect(Collectors.toList()));
+    }
+
+    @Test
+    public void allFieldNamesTest() {
+        StructVector<StructParent> struct = new StructVector<>(StructParent.class, 3);
+        assertEquals(Arrays.asList("first", "second"), struct.allFieldNames());
     }
 }

@@ -176,4 +176,10 @@ public final class Fields implements FieldLike {
         return fields.get(name);
     }
 
+    /**
+     * @return The list of the struct field names.
+     */
+    public List<String> allFieldNames() {
+        return new ArrayList<>(fields.keySet());
+    }
 }

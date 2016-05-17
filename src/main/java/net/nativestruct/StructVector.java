@@ -82,7 +82,7 @@ public final class StructVector<T> {
      *
      * @param index A new record index.
      */
-    void current(int index) {
+    public void current(int index) {
         checkIndexBounds(index);
         for (AbstractStruct accessor : accessors) {
             accessor.current(index);
@@ -136,6 +136,13 @@ public final class StructVector<T> {
     }
 
     /**
+     * @return The list of the struct field names.
+     */
+    public List<String> allFieldNames() {
+        return fields.allFieldNames();
+    }
+
+    /**
      * Inserts empty elements in vector. Subsequent elements are shifted forward.
      *
      * @param index Insertion point.
@@ -149,6 +156,7 @@ public final class StructVector<T> {
         reserve(ceilingPowerOfTwo(size() + count));
         holder.insert(index, count);
         updateAccessors();
+        current(index);
         return this;
     }
 
@@ -164,6 +172,7 @@ public final class StructVector<T> {
         reserve(ceilingPowerOfTwo(index + count));
         holder.insert(index, count);
         updateAccessors();
+        current(index);
         return index;
     }
 
@@ -309,6 +318,20 @@ public final class StructVector<T> {
     }
 
     /**
+     * Perform struct record sorting by the specified field.
+     *
+     * @param name Name of the field used for sorting.
+     * @param <U> Type of the field being sorted.
+     */
+    public <U> void sort(String name) {
+        Field field = field(name);
+        if (field == null) {
+            throw new IllegalArgumentException("Unknown field: " + name);
+        }
+        sort(field);
+    }
+
+    /**
      * Perform struct record sorting by the specified object field.
      *
      * @param field Object field used for sorting.
@@ -318,6 +341,21 @@ public final class StructVector<T> {
     public <U> void sort(Field field, Comparator<U> comparator) {
         holder.objectSort(fields.objectFields(), field.index(), comparator);
         updateAccessors();
+    }
+
+    /**
+     * Perform struct record sorting by the specified object field.
+     *
+     * @param name Name of the field used for sorting.
+     * @param comparator Comparator used for the field values comparison.
+     * @param <U> Type of the field being sorted.
+     */
+    public <U> void sort(String name, Comparator<U> comparator) {
+        Field field = field(name);
+        if (field == null) {
+            throw new IllegalArgumentException("Unknown field: " + name);
+        }
+        sort(field, comparator);
     }
 
     /**
@@ -367,27 +405,33 @@ public final class StructVector<T> {
          */
         final void insert(int index, int count) {
             int intFields = fields.intFields();
-            if (index < size) {
-                insertInArray(index, count, this.integers, intFields);
-            }
-            for (int i = 0; i < count; i++) {
-                integers[(index + i) * intFields] = 0;
+            if (intFields > 0) {
+                if (index < size) {
+                    insertInArray(index, count, this.integers, intFields);
+                }
+                for (int i = 0; i < count; i++) {
+                    integers[(index + i) * intFields] = 0;
+                }
             }
 
             int doubleFields = fields.doubleFields();
-            if (index < size) {
-                insertInArray(index, count, this.doubles, doubleFields);
-            }
-            for (int i = 0; i < count; i++) {
-                doubles[(index + i) * doubleFields] = 0;
+            if (doubleFields > 0) {
+                if (index < size) {
+                    insertInArray(index, count, this.doubles, doubleFields);
+                }
+                for (int i = 0; i < count; i++) {
+                    doubles[(index + i) * doubleFields] = 0;
+                }
             }
 
             int objectFields = fields.objectFields();
-            if (index < size) {
-                insertInArray(index, count, this.objects, objectFields);
-            }
-            for (int i = 0; i < count; i++) {
-                objects[(index + i) * objectFields] = null;
+            if (objectFields > 0) {
+                if (index < size) {
+                    insertInArray(index, count, this.objects, objectFields);
+                }
+                for (int i = 0; i < count; i++) {
+                    objects[(index + i) * objectFields] = null;
+                }
             }
 
             size += count;

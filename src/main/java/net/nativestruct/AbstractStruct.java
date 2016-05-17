@@ -49,7 +49,7 @@ public abstract class AbstractStruct {
      *
      * @param index A new record index.
      */
-    final void current(int index) {
+    public final void current(int index) {
         this.current = index;
     }
 

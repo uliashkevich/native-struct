@@ -27,6 +27,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -120,7 +121,7 @@ public class FieldsBuilder {
     }
 
     private Map<String, FieldLike> buildFields(List<FieldOrdering> orderings) {
-        Map<String, FieldLike> namedFields = new HashMap<>();
+        Map<String, FieldLike> namedFields = new LinkedHashMap<>();
         orderings.stream().forEach(
             ordering -> namedFields.put(ordering.getName(), ordering.createField()));
         return namedFields;
