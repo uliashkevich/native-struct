@@ -28,6 +28,12 @@ package net.nativestruct.sorting;
  */
 public interface OrderingSubstitution {
     /**
+     * @param index Input index.
+     * @return Index after applying substitution.
+     */
+    int forIndex(int index);
+
+    /**
      * Performs reordering of elements.
      *
      * @param operation Callback interface for swapping elements.

@@ -341,16 +341,15 @@ public class StructVectorTest {
     public void sortTest() {
         StructVector<StructDirect> struct = new StructVector<>(StructDirect.class, 8);
         struct.resize(7);
-        StructDirect accessor = struct.accessor();
 
         int index = -1;
-        updateIntegerAndString(struct, accessor, ++index, 20, "33");
-        updateIntegerAndString(struct, accessor, ++index, 10, "44");
-        updateIntegerAndString(struct, accessor, ++index, 60, "55");
-        updateIntegerAndString(struct, accessor, ++index, 40, "66");
-        updateIntegerAndString(struct, accessor, ++index, 30, "77");
-        updateIntegerAndString(struct, accessor, ++index, 70, "88");
-        updateIntegerAndString(struct, accessor, ++index, 50, "99");
+        updateIntegerAndString(struct, ++index, 20, "33");
+        updateIntegerAndString(struct, ++index, 10, "44");
+        updateIntegerAndString(struct, ++index, 60, "55");
+        updateIntegerAndString(struct, ++index, 40, "66");
+        updateIntegerAndString(struct, ++index, 30, "77");
+        updateIntegerAndString(struct, ++index, 70, "88");
+        updateIntegerAndString(struct, ++index, 50, "99");
 
         struct.sort("int");
 
@@ -367,16 +366,15 @@ public class StructVectorTest {
     public void sortReverseTest() {
         StructVector<StructDirect> struct = new StructVector<>(StructDirect.class, 8);
         struct.resize(7);
-        StructDirect accessor = struct.accessor();
 
         int index = -1;
-        updateIntegerAndString(struct, accessor, ++index, 20, "33");
-        updateIntegerAndString(struct, accessor, ++index, 10, "44");
-        updateIntegerAndString(struct, accessor, ++index, 60, "55");
-        updateIntegerAndString(struct, accessor, ++index, 40, "66");
-        updateIntegerAndString(struct, accessor, ++index, 30, "77");
-        updateIntegerAndString(struct, accessor, ++index, 70, "88");
-        updateIntegerAndString(struct, accessor, ++index, 50, "99");
+        updateIntegerAndString(struct, ++index, 20, "33");
+        updateIntegerAndString(struct, ++index, 10, "44");
+        updateIntegerAndString(struct, ++index, 60, "55");
+        updateIntegerAndString(struct, ++index, 40, "66");
+        updateIntegerAndString(struct, ++index, 30, "77");
+        updateIntegerAndString(struct, ++index, 70, "88");
+        updateIntegerAndString(struct, ++index, 50, "99");
 
         struct.sort("string", (String left, String right) -> right.compareTo(left));
 
@@ -390,24 +388,23 @@ public class StructVectorTest {
     public void stableSortTest() {
         StructVector<StructDirect> struct = new StructVector<>(StructDirect.class, 16);
         struct.resize(14);
-        StructDirect accessor = struct.accessor();
 
         int index = -1;
-        updateIntegerAndString(struct, accessor, ++index, 20, "33");
-        updateIntegerAndString(struct, accessor, ++index, 10, "44");
-        updateIntegerAndString(struct, accessor, ++index, 60, "55");
-        updateIntegerAndString(struct, accessor, ++index, 40, "66");
-        updateIntegerAndString(struct, accessor, ++index, 30, "77");
-        updateIntegerAndString(struct, accessor, ++index, 70, "88");
-        updateIntegerAndString(struct, accessor, ++index, 50, "99");
+        updateIntegerAndString(struct, ++index, 20, "33");
+        updateIntegerAndString(struct, ++index, 10, "44");
+        updateIntegerAndString(struct, ++index, 60, "55");
+        updateIntegerAndString(struct, ++index, 40, "66");
+        updateIntegerAndString(struct, ++index, 30, "77");
+        updateIntegerAndString(struct, ++index, 70, "88");
+        updateIntegerAndString(struct, ++index, 50, "99");
 
-        updateIntegerAndString(struct, accessor, ++index, 20, "331");
-        updateIntegerAndString(struct, accessor, ++index, 10, "441");
-        updateIntegerAndString(struct, accessor, ++index, 60, "551");
-        updateIntegerAndString(struct, accessor, ++index, 40, "661");
-        updateIntegerAndString(struct, accessor, ++index, 30, "771");
-        updateIntegerAndString(struct, accessor, ++index, 70, "881");
-        updateIntegerAndString(struct, accessor, ++index, 50, "991");
+        updateIntegerAndString(struct, ++index, 20, "331");
+        updateIntegerAndString(struct, ++index, 10, "441");
+        updateIntegerAndString(struct, ++index, 60, "551");
+        updateIntegerAndString(struct, ++index, 40, "661");
+        updateIntegerAndString(struct, ++index, 30, "771");
+        updateIntegerAndString(struct, ++index, 70, "881");
+        updateIntegerAndString(struct, ++index, 50, "991");
 
         struct.sort("int");
 
@@ -420,10 +417,10 @@ public class StructVectorTest {
                 Arrays.stream(struct.objects()).collect(Collectors.toList()));
     }
 
-    private void updateIntegerAndString(StructVector struct, StructDirect accessor, int n, int integer, String string) {
+    private void updateIntegerAndString(StructVector<StructDirect> struct, int n, int integer, String string) {
         struct.current(n);
-        accessor.setInt(integer);
-        accessor.setString(string);
+        struct.accessor().setInt(integer);
+        struct.accessor().setString(string);
     }
 
     public static abstract class StructParent extends AbstractStruct {
@@ -463,5 +460,57 @@ public class StructVectorTest {
     public void allFieldNamesTest() {
         StructVector<StructParent> struct = new StructVector<>(StructParent.class, 3);
         assertEquals(Arrays.asList("first", "second"), struct.allFieldNames());
+    }
+
+    @Test
+    public void asSortedTest() {
+        StructVector<StructDirect> struct = new StructVector<>(StructDirect.class, 8);
+        struct.resize(7);
+
+        int index = -1;
+        updateIntegerAndString(struct, ++index, 20, "33");
+        updateIntegerAndString(struct, ++index, 10, "44");
+        updateIntegerAndString(struct, ++index, 60, "55");
+        updateIntegerAndString(struct, ++index, 40, "66");
+        updateIntegerAndString(struct, ++index, 30, "77");
+        updateIntegerAndString(struct, ++index, 70, "88");
+        updateIntegerAndString(struct, ++index, 50, "99");
+
+        StructProjection<StructDirect> sorted = struct.asSorted("int");
+
+        assertEquals(7, sorted.size());
+
+        sorted.current(0);
+        assertEquals(10, sorted.accessor().getInt());
+        assertEquals("44", sorted.accessor().getString());
+        sorted.current(1);
+        assertEquals(20, sorted.accessor().getInt());
+        assertEquals("33", sorted.accessor().getString());
+        sorted.current(6);
+        assertEquals(70, sorted.accessor().getInt());
+        assertEquals("88", sorted.accessor().getString());
+
+        assertArrayEquals(new int[]{20, 10, 60, 40, 30, 70, 50, 0}, struct.integers());
+        assertArrayEquals(new Object[]{"33", "44", "55", "66", "77", "88", "99", null}, struct.objects());
+    }
+
+    @Test
+    public void updateFromTest() {
+        StructVector<StructDirect> struct = new StructVector<>(StructDirect.class, 4);
+        struct.resize(3);
+        updateIntegerAndString(struct, 0, 20, "33");
+        updateIntegerAndString(struct, 1, 10, "44");
+        updateIntegerAndString(struct, 2, 30, "55");
+
+        StructVector<StructDirect> struct2 = new StructVector<>(StructDirect.class, 4);
+        struct2.resize(3);
+        updateIntegerAndString(struct2, 0, 520, "533");
+        updateIntegerAndString(struct2, 1, 510, "544");
+        updateIntegerAndString(struct2, 2, 530, "555");
+
+        struct.updateFrom(2, struct2, 1);
+
+        assertArrayEquals(new int[]{20, 10, 510, 0}, struct.integers());
+        assertArrayEquals(new Object[]{"33", "44", "544", null}, struct.objects());
     }
 }

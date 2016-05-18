@@ -29,12 +29,13 @@ import java.util.Comparator;
  * The class performs sorting of record indexes according to ordering, specified by a struct field.
  * It returns index substitution array, which is used to reorder struct records.
  */
-public abstract class AbstractSortedSubstitution {
+public abstract class AbstractSortedSubstitution implements SortedSubstitution {
     private static final int INSERTION_SORT_THRESHOLD = 10;
 
     private final IndexedFieldComparator comparator;
     private final int[] indexes;
     private final int[] shadow;
+    private final OrderingSubstitution ordering;
 
     /**
      * Construct instance.
@@ -46,14 +47,10 @@ public abstract class AbstractSortedSubstitution {
         this.comparator = comparator;
         this.indexes = new int[size];
         this.shadow = new int[size];
+        this.ordering = buildOrdering();
     }
 
-    /**
-     * Performs sorting of indexes.
-     *
-     * @return Substitution array, which can be used to reorder struct records.
-     */
-    public final OrderingSubstitution substitution() {
+    private OrderingSubstitution buildOrdering() {
         for (int i = 0; i < indexes.length; i++) {
             indexes[i] = i;
         }
@@ -65,6 +62,16 @@ public abstract class AbstractSortedSubstitution {
         }
 
         return new IndexBasedSubstitution(indexes, shadow);
+    }
+
+    @Override
+    public final IndexedFieldComparator comparator() {
+        return comparator;
+    }
+
+    @Override
+    public final OrderingSubstitution ordering() {
+        return ordering;
     }
 
     /**
@@ -165,20 +172,6 @@ public abstract class AbstractSortedSubstitution {
 
         System.arraycopy(indexes, first, indexes, target, middle - first);
         System.arraycopy(shadow, lower, indexes, lower, upper - lower - (middle - first));
-    }
-
-    /**
-     * Comparator interface for indexed struct fields.
-     */
-    interface IndexedFieldComparator {
-        /**
-         * Compare structs specified by their indexes.
-         *
-         * @param leftIndex First struct index.
-         * @param rightIndex Second struct index.
-         * @return If the first struct is less or equal to the second struct.
-         */
-        boolean lessOrEqual(int leftIndex, int rightIndex);
     }
 
     /**

@@ -23,14 +23,18 @@
  */
 package net.nativestruct;
 
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
 import net.nativestruct.implementation.field.Field;
 import net.nativestruct.implementation.field.Fields;
 import net.nativestruct.implementation.field.FieldsBuilder;
+import net.nativestruct.mapreduce.Reduce;
 import net.nativestruct.sorting.AbstractSortedSubstitution;
 import net.nativestruct.sorting.OrderingSubstitution;
+import net.nativestruct.sorting.SortedProjection;
+import net.nativestruct.sorting.SortedSubstitution;
 
 /**
  * Encapsulates a vector of structures of primitive types.
@@ -39,14 +43,26 @@ import net.nativestruct.sorting.OrderingSubstitution;
  *
  * @param <T> Accessor type.
  */
-public final class StructVector<T> {
+public final class StructVector<T> implements StructProjection<T> {
 
-    private Fields fields;
-    private Holder holder;
+    private static final int INITIAL_CAPACITY = 16;
 
-    private List<AbstractStruct> accessors;
+    private final Fields fields;
+    private final Holder holder;
+
+    private final AbstractStruct[] accessors;
+    private final T accessor;
 
     private int capacity;
+
+    /**
+     * Creates a new instance of struct vector given accessor interface.
+     *
+     * @param type     Struct accessor interface class.
+     */
+    public StructVector(Class<T> type) {
+        this(type, INITIAL_CAPACITY);
+    }
 
     /**
      * Creates a new instance of struct vector given accessor interface and
@@ -57,35 +73,33 @@ public final class StructVector<T> {
      */
     public StructVector(Class<T> type, int capacity) {
         this.fields = new FieldsBuilder(type).build();
-        this.accessors = fields.buildAccessors();
-        this.holder = new Holder(fields, accessors.subList(1, accessors.size()));
+        this.accessors = buildAccessors();
+        this.accessor = (T) accessors[0];
+        this.holder = new Holder(fields, Arrays.asList(accessors).subList(1, accessors.length));
 
         reserve(capacity);
     }
 
-    /**
-     * @return Vector size.
-     */
+    private AbstractStruct[] buildAccessors() {
+        List<AbstractStruct> accessorsList = fields.buildAccessors();
+        return accessorsList.toArray(new AbstractStruct[accessorsList.size()]);
+    }
+
+    @Override
     public int size() {
         return holder.size();
     }
 
-    /**
-     * @return Current record index. By default it equals -1.
-     */
+    @Override
     public int current() {
-        return accessors.get(0).current();
+        return accessors[0].current();
     }
 
-    /**
-     * Updates the current record index for all the field accessors and enclosed struct records.
-     *
-     * @param index A new record index.
-     */
+    @Override
     public void current(int index) {
         checkIndexBounds(index);
-        for (AbstractStruct accessor : accessors) {
-            accessor.current(index);
+        for (AbstractStruct acc : accessors) {
+            acc.current(index);
         }
     }
 
@@ -107,7 +121,7 @@ public final class StructVector<T> {
      * @return This instance.
      */
     public StructVector<T> resize(int size) {
-        reserve(ceilingPowerOfTwo(size));
+        reserve(alignCapacity(size));
         holder.resize(size);
         updateAccessors();
         return this;
@@ -115,9 +129,9 @@ public final class StructVector<T> {
 
     /**
      * @param size Vector size.
-     * @return Nearest power of two larger than the size.
+     * @return Nearest power of two no smaller than the size.
      */
-    private int ceilingPowerOfTwo(int size) {
+    private int alignCapacity(int size) {
         int num = size - 1;
         num |= num >> 1;
         num |= num >> 2;
@@ -153,9 +167,10 @@ public final class StructVector<T> {
         if (index < 0 || index > size()) {
             throw new ArrayIndexOutOfBoundsException(index);
         }
-        reserve(ceilingPowerOfTwo(size() + count));
+        if (reserve(alignCapacity(size() + count))) {
+            updateAccessors();
+        }
         holder.insert(index, count);
-        updateAccessors();
         current(index);
         return this;
     }
@@ -169,7 +184,7 @@ public final class StructVector<T> {
     public int insertLast(int count) {
         assert count > 0;
         int index = size();
-        reserve(ceilingPowerOfTwo(index + count));
+        reserve(alignCapacity(index + count));
         holder.insert(index, count);
         updateAccessors();
         current(index);
@@ -190,13 +205,15 @@ public final class StructVector<T> {
      *
      * @param newCapacity The number of elements.
      */
-    private StructVector<T> reserve(int newCapacity) {
+    private boolean reserve(int newCapacity) {
         assert newCapacity >= 0;
         if (newCapacity > this.capacity) {
             this.capacity = newCapacity;
             holder.reserve(newCapacity);
+            return true;
+        } else {
+            return false;
         }
-        return this;
     }
 
     private void updateAccessors() {
@@ -205,11 +222,9 @@ public final class StructVector<T> {
         }
     }
 
-    /**
-     * @return Accessor instance, giving access to vector elements.
-     */
+    @Override
     public T accessor() {
-        return (T) this.accessors.get(0);
+        return accessor;
     }
 
     /**
@@ -231,19 +246,6 @@ public final class StructVector<T> {
      */
     public Object[] objects() {
         return holder.objects();
-    }
-
-    /**
-     * Generate new records and put them into the struct array.
-     *
-     * @param source    The source struct vector, based off which the records are generated.
-     * @param generator The generator interface, holding method that is executed for each record.
-     *                  from the source struct vector.
-     * @param <U>       Type of the source struct vector.
-     * @param <V>       Type of the generator interface.
-     */
-    public <U, V> void generate(StructVector<U> source, V generator) {
-        //source.iterateFields(this, new InnerAdder(), generator);
     }
 
     /**
@@ -298,22 +300,40 @@ public final class StructVector<T> {
     }
 
     /**
+     * @param field Struct field that specifies ordering.
+     * @return SortedSubstitution instance.
+     */
+    public SortedSubstitution sortedSubstitution(Field field) {
+        SortedSubstitution substitution;
+        if (field.isType(int.class)) {
+            substitution = holder.integerSortedSubstitution(field);
+        } else if (field.isType(double.class)) {
+            substitution = holder.doubleSortedSubstitution(field);
+        } else if (!field.isPrimitive()) {
+            //noinspection unchecked
+            Comparator<Object> comparator = (left, right) -> ((Comparable) left).compareTo(right);
+            substitution = holder.objectSortedSubstitution(field, comparator);
+        } else {
+            throw new IllegalArgumentException("Sorting is not supported for field " + field);
+        }
+        return substitution;
+    }
+
+    /**
+     * @param field Struct field that specifies ordering.
+     * @return SortedSubstitution instance.
+     */
+    public SortedSubstitution sortedSubstitution(String field) {
+        return sortedSubstitution(field(field));
+    }
+
+    /**
      * Perform struct record sorting by the specified field.
      *
      * @param field The field that will determine the sort ordering.
      */
     public void sort(Field field) {
-        if (field.isType(int.class)) {
-            holder.integerSort(fields.intFields(), field.index());
-        } else if (field.isType(double.class)) {
-            holder.doubleSort(fields.doubleFields(), field.index());
-        } else if (!field.isPrimitive()) {
-            //noinspection unchecked
-            holder.objectSort(fields.objectFields(), field.index(),
-                (left, right) -> ((Comparable) left).compareTo(right));
-        } else {
-            throw new IllegalArgumentException("Sorting is not supported for field " + field);
-        }
+        holder.reorder(sortedSubstitution(field).ordering());
         updateAccessors();
     }
 
@@ -321,9 +341,8 @@ public final class StructVector<T> {
      * Perform struct record sorting by the specified field.
      *
      * @param name Name of the field used for sorting.
-     * @param <U> Type of the field being sorted.
      */
-    public <U> void sort(String name) {
+    public void sort(String name) {
         Field field = field(name);
         if (field == null) {
             throw new IllegalArgumentException("Unknown field: " + name);
@@ -339,7 +358,7 @@ public final class StructVector<T> {
      * @param <U> Type of the field being sorted.
      */
     public <U> void sort(Field field, Comparator<U> comparator) {
-        holder.objectSort(fields.objectFields(), field.index(), comparator);
+        holder.reorder(holder.objectSortedSubstitution(field, comparator).ordering());
         updateAccessors();
     }
 
@@ -356,6 +375,55 @@ public final class StructVector<T> {
             throw new IllegalArgumentException("Unknown field: " + name);
         }
         sort(field, comparator);
+    }
+
+    /**
+     * Creates a projection with records ordered by the specified field.
+     * The original vector stays intact.
+     *
+     * @param name Name of the field.
+     * @return Project instance.
+     */
+    public StructProjection<T> asSorted(String name) {
+        return new SortedProjection<>(this, field(name));
+    }
+
+    /**
+     * Starts building reduce operation by the given field.
+     *
+     * @param field Field name for which the reduce operation will be performed.
+     * @return New reducer builder object.
+     */
+    public Reduce<T> reduceBy(String field) {
+        return new Reduce<>(this, field(field));
+    }
+
+    /**
+     * Updates one record in the current vector by copying a record from source vector.
+     * Both vectors should represent the same struct.
+     *
+     * @param targetIndex Index of the record in the current struct vector being updated.
+     * @param source Source struct vector.
+     * @param sourceIndex Index of the record being copied.
+     */
+    public void updateFrom(int targetIndex, StructVector<T> source, int sourceIndex) {
+        int intFields = fields.intFields();
+        if (intFields > 0) {
+            System.arraycopy(source.integers(), sourceIndex * intFields,
+                    integers(), targetIndex * intFields, intFields);
+        }
+
+        int doubleFields = fields.doubleFields();
+        if (doubleFields > 0) {
+            System.arraycopy(source.doubles(), sourceIndex * doubleFields,
+                    doubles(), targetIndex * doubleFields, doubleFields);
+        }
+
+        int objectFields = fields.objectFields();
+        if (objectFields > 0) {
+            System.arraycopy(source.objects(), sourceIndex * objectFields,
+                    objects(), targetIndex * objectFields, objectFields);
+        }
     }
 
     /**
@@ -404,33 +472,29 @@ public final class StructVector<T> {
          * @param count The number of elements to insert.
          */
         final void insert(int index, int count) {
-            int intFields = fields.intFields();
-            if (intFields > 0) {
-                if (index < size) {
+            if (index < size) {
+                int intFields = fields.intFields();
+                if (intFields > 0) {
                     insertInArray(index, count, this.integers, intFields);
+                    for (int i = 0; i < count; i++) {
+                        integers[(index + i) * intFields] = 0;
+                    }
                 }
-                for (int i = 0; i < count; i++) {
-                    integers[(index + i) * intFields] = 0;
-                }
-            }
 
-            int doubleFields = fields.doubleFields();
-            if (doubleFields > 0) {
-                if (index < size) {
+                int doubleFields = fields.doubleFields();
+                if (doubleFields > 0) {
                     insertInArray(index, count, this.doubles, doubleFields);
+                    for (int i = 0; i < count; i++) {
+                        doubles[(index + i) * doubleFields] = 0;
+                    }
                 }
-                for (int i = 0; i < count; i++) {
-                    doubles[(index + i) * doubleFields] = 0;
-                }
-            }
 
-            int objectFields = fields.objectFields();
-            if (objectFields > 0) {
-                if (index < size) {
+                int objectFields = fields.objectFields();
+                if (objectFields > 0) {
                     insertInArray(index, count, this.objects, objectFields);
-                }
-                for (int i = 0; i < count; i++) {
-                    objects[(index + i) * objectFields] = null;
+                    for (int i = 0; i < count; i++) {
+                        objects[(index + i) * objectFields] = null;
+                    }
                 }
             }
 
@@ -482,6 +546,28 @@ public final class StructVector<T> {
          * @param newSize Vector size.
          */
         final void resize(int newSize) {
+            if (newSize < this.size) {
+                int intFields = fields.intFields();
+                if (intFields > 0) {
+                    for (int i = newSize * intFields; i < size * intFields; i++) {
+                        integers[i] = 0;
+                    }
+                }
+
+                int doubleFields = fields.doubleFields();
+                if (doubleFields > 0) {
+                    for (int i = newSize * doubleFields; i < size * doubleFields; i++) {
+                        doubles[i] = 0.0;
+                    }
+                }
+
+                int objectFields = fields.objectFields();
+                if (objectFields > 0) {
+                    for (int i = newSize * objectFields; i < size * objectFields; i++) {
+                        objects[i] = null;
+                    }
+                }
+            }
             this.size = newSize;
         }
 
@@ -616,40 +702,20 @@ public final class StructVector<T> {
             return -(low + 1);
         }
 
-        /**
-         * Sort by integer field.
-         *
-         * @param intFields The number of integer fields.
-         * @param fieldIndex Field index.
-         */
-        public final void integerSort(int intFields, int fieldIndex) {
-            reorder(new AbstractSortedSubstitution.Integers(
-                    integers, size, intFields, fieldIndex).substitution());
+        private SortedSubstitution integerSortedSubstitution(Field field) {
+            return new AbstractSortedSubstitution.Integers(
+                    integers, size, fields.intFields(), field.index());
         }
 
-        /**
-         * Sort by double field.
-         *
-         * @param doubleFields The number of double fields.
-         * @param fieldIndex Field index.
-         */
-        public final void doubleSort(int doubleFields, int fieldIndex) {
-            reorder(new AbstractSortedSubstitution.Doubles(
-                    doubles, size, doubleFields, fieldIndex).substitution());
+        private SortedSubstitution doubleSortedSubstitution(Field field) {
+            return new AbstractSortedSubstitution.Doubles(
+                    doubles, size, fields.doubleFields(), field.index());
         }
 
-        /**
-         * Sort by object field.
-         *
-         * @param objectFields The number of object fields.
-         * @param fieldIndex Field index.
-         * @param comparator Comparator used for the field values comparison.
-         * @param <U> Comparator generic type.
-         */
-        public final <U> void objectSort(
-                int objectFields, int fieldIndex, Comparator<U> comparator) {
-            reorder(new AbstractSortedSubstitution.Objects(
-                    objects, size, objectFields, fieldIndex, comparator).substitution());
+        private <U> SortedSubstitution objectSortedSubstitution(
+                Field field, Comparator<U> comparator) {
+            return new AbstractSortedSubstitution.Objects(
+                    objects, size, fields.objectFields(), field.index(), comparator);
         }
 
         /**

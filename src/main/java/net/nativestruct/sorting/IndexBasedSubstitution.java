@@ -44,6 +44,11 @@ class IndexBasedSubstitution implements OrderingSubstitution {
     }
 
     @Override
+    public int forIndex(int index) {
+        return first[index];
+    }
+
+    @Override
     public void reorder(SubstitutionOp operation) {
         for (int i = 0; i < first.length; i++) {
             operation.swap(i, first[i]);

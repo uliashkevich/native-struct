@@ -21,14 +21,4 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package net.nativestruct;
-
-/**
- * @author uliashkevich
- */
-public @interface StructIterator {
-    /**
-     * @return Struct accessor interface.
-     */
-    Class<?> value();
-}
+package net.nativestruct.mapreduce;
