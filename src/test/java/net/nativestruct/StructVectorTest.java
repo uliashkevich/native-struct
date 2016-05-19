@@ -513,4 +513,22 @@ public class StructVectorTest {
         assertArrayEquals(new int[]{20, 10, 510, 0}, struct.integers());
         assertArrayEquals(new Object[]{"33", "44", "544", null}, struct.objects());
     }
+
+    @Test
+    public void reserveTest() {
+        StructVector<StructDirect> struct = new StructVector<>(StructDirect.class, 2);
+        struct.insertLast();
+        struct.current(0);
+        struct.accessor().setInt(11);
+        struct.insertLast();
+        struct.insertLast();
+        struct.insertLast();
+        struct.insertLast();
+        struct.current(2);
+        struct.accessor().setInt(55);
+        struct.current(4);
+        struct.accessor().setInt(88);
+        assertEquals(Arrays.asList(11, 0, 55, 0, 88, 0, 0, 0),
+                Arrays.stream(struct.integers()).boxed().collect(Collectors.toList()));
+    }
 }

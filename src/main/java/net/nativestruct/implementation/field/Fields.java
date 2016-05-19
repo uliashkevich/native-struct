@@ -24,6 +24,7 @@
 package net.nativestruct.implementation.field;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -40,6 +41,8 @@ import net.nativestruct.AbstractStruct;
  * Name -> Accessor type -> Type -> Field counts -> Indexes -> Accessor
  */
 public final class Fields implements FieldLike {
+    private static final Map<Class<?>, Fields> CACHE = new HashMap<>();
+
     private final Class<?> type;
     private final int index;
     private Map<String, FieldLike> fields;
@@ -50,7 +53,7 @@ public final class Fields implements FieldLike {
     /**
      * Initializes instance with the list of accessor methods group by struct field names.
      *
-     * @param type Map between field names and accessor methods.
+     * @param type Accessor type.
      * @param index Composite property index inside composites array.
      * @param counter Field counter object.
      * @param accessors The list of the field accessor methods.
@@ -72,6 +75,17 @@ public final class Fields implements FieldLike {
         if (!type.isInterface() && !AbstractStruct.class.isAssignableFrom(type)) {
             throw new IllegalArgumentException("Invalid accessor base type: " + type);
         }
+    }
+
+    /**
+     * Returns Fields instance based on accessor type.
+     *
+     * @param type Accessor type.
+     * @param <T> Generic type.
+     * @return Fields instance.
+     */
+    public static <T> Fields forType(Class<T> type) {
+        return CACHE.computeIfAbsent(type, aType -> new FieldsBuilder(aType).build());
     }
 
     @Override

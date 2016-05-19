@@ -29,7 +29,6 @@ import java.util.List;
 
 import net.nativestruct.implementation.field.Field;
 import net.nativestruct.implementation.field.Fields;
-import net.nativestruct.implementation.field.FieldsBuilder;
 import net.nativestruct.mapreduce.Reduce;
 import net.nativestruct.sorting.AbstractSortedSubstitution;
 import net.nativestruct.sorting.OrderingSubstitution;
@@ -46,6 +45,7 @@ import net.nativestruct.sorting.SortedSubstitution;
 public final class StructVector<T> implements StructProjection<T> {
 
     private static final int INITIAL_CAPACITY = 16;
+    private static final double GROW_FACTOR = 1.5f;
 
     private final Fields fields;
     private final Holder holder;
@@ -72,12 +72,13 @@ public final class StructVector<T> implements StructProjection<T> {
      * @param capacity Initial vector capacity.
      */
     public StructVector(Class<T> type, int capacity) {
-        this.fields = new FieldsBuilder(type).build();
+        this.fields = Fields.forType(type);
         this.accessors = buildAccessors();
         this.accessor = (T) accessors[0];
         this.holder = new Holder(fields, Arrays.asList(accessors).subList(1, accessors.length));
 
         reserve(capacity);
+        updateAccessors();
     }
 
     private AbstractStruct[] buildAccessors() {
@@ -98,8 +99,12 @@ public final class StructVector<T> implements StructProjection<T> {
     @Override
     public void current(int index) {
         checkIndexBounds(index);
-        for (AbstractStruct acc : accessors) {
-            acc.current(index);
+        updateCurrent(index);
+    }
+
+    private void updateCurrent(int index) {
+        for (int i = 0; i < accessors.length; i++) {
+            accessors[i].current(index);
         }
     }
 
@@ -121,7 +126,7 @@ public final class StructVector<T> implements StructProjection<T> {
      * @return This instance.
      */
     public StructVector<T> resize(int size) {
-        reserve(alignCapacity(size));
+        reserve(size);
         holder.resize(size);
         updateAccessors();
         return this;
@@ -129,16 +134,10 @@ public final class StructVector<T> implements StructProjection<T> {
 
     /**
      * @param size Vector size.
-     * @return Nearest power of two no smaller than the size.
+     * @return New vector capacity based on the existing capacity and grow factor.
      */
     private int alignCapacity(int size) {
-        int num = size - 1;
-        num |= num >> 1;
-        num |= num >> 2;
-        num |= num >> 4;
-        num |= num >> 8;
-        num |= num >> 16;
-        return num + 1;
+        return Math.max(size, (int)(capacity * GROW_FACTOR));
     }
 
     /**
@@ -163,16 +162,17 @@ public final class StructVector<T> implements StructProjection<T> {
      * @param count The number of elements to insert.
      * @return This instance.
      */
-    public StructVector<T> insert(int index, int count) {
+    public int insert(int index, int count) {
         if (index < 0 || index > size()) {
             throw new ArrayIndexOutOfBoundsException(index);
         }
-        if (reserve(alignCapacity(size() + count))) {
+        int newSize = size() + count;
+        if (newSize > capacity && reserve(alignCapacity(newSize))) {
             updateAccessors();
         }
         holder.insert(index, count);
-        current(index);
-        return this;
+        updateCurrent(index);
+        return index;
     }
 
     /**
@@ -184,10 +184,13 @@ public final class StructVector<T> implements StructProjection<T> {
     public int insertLast(int count) {
         assert count > 0;
         int index = size();
-        reserve(alignCapacity(index + count));
-        holder.insert(index, count);
-        updateAccessors();
-        current(index);
+        int newSize = index + count;
+        if (newSize > capacity) {
+            reserve(alignCapacity(newSize));
+            updateAccessors();
+        }
+        holder.increaseSize(count);
+        updateCurrent(index);
         return index;
     }
 
@@ -217,8 +220,8 @@ public final class StructVector<T> implements StructProjection<T> {
     }
 
     private void updateAccessors() {
-        for (AbstractStruct acc : accessors) {
-            acc.copyFrom(holder);
+        for (int i = 0; i < accessors.length; i++) {
+            accessors[i].copyFrom(holder);
         }
     }
 
@@ -457,12 +460,12 @@ public final class StructVector<T> implements StructProjection<T> {
 
         /**
          * Reallocates internal array for all fields of the struct.
-         * @param newSize The number of elements in array.
+         * @param capacity The number of elements in array.
          */
-        final void reserve(int newSize) {
-            reserveIntegers(newSize, fields.intFields());
-            reserveDoubles(newSize, fields.doubleFields());
-            reserveObjects(newSize, fields.objectFields());
+        final void reserve(int capacity) {
+            reserveIntegers(capacity, fields.intFields());
+            reserveDoubles(capacity, fields.doubleFields());
+            reserveObjects(capacity, fields.objectFields());
         }
 
         /**
@@ -476,28 +479,32 @@ public final class StructVector<T> implements StructProjection<T> {
                 int intFields = fields.intFields();
                 if (intFields > 0) {
                     insertInArray(index, count, this.integers, intFields);
-                    for (int i = 0; i < count; i++) {
-                        integers[(index + i) * intFields] = 0;
+                    for (int i = 0; i < count * intFields; i++) {
+                        integers[index * intFields + i] = 0;
                     }
                 }
 
                 int doubleFields = fields.doubleFields();
                 if (doubleFields > 0) {
                     insertInArray(index, count, this.doubles, doubleFields);
-                    for (int i = 0; i < count; i++) {
-                        doubles[(index + i) * doubleFields] = 0;
+                    for (int i = 0; i < count * doubleFields; i++) {
+                        doubles[index * doubleFields + i] = 0;
                     }
                 }
 
                 int objectFields = fields.objectFields();
                 if (objectFields > 0) {
                     insertInArray(index, count, this.objects, objectFields);
-                    for (int i = 0; i < count; i++) {
-                        objects[(index + i) * objectFields] = null;
+                    for (int i = 0; i < count * objectFields; i++) {
+                        objects[index * objectFields + i] = null;
                     }
                 }
             }
 
+            increaseSize(count);
+        }
+
+        private void increaseSize(int count) {
             size += count;
         }
 

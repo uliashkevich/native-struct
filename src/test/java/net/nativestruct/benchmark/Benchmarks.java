@@ -6,6 +6,7 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import net.nativestruct.StructVector;
+import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Level;
@@ -16,6 +17,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
+import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
@@ -23,23 +25,22 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @State(Scope.Benchmark)
 public class Benchmarks {
-    private static final int SIZE = 1_000_000;
+    private static final int SIZE = 2_000_000;
     private static final Random random = new Random(System.currentTimeMillis());
 
     private List<Point> pointsList;
-    private StructVector<PointStruct> pointsVector;
     private PointStruct pointsAccessor;
 
     public double publishResult;
 
     @Setup(Level.Trial)
     public void setUp() {
-        pointsList = new ArrayList<>(SIZE);
-        for (int i = 0; i < SIZE; i++) {
-            pointsList.add(new Point(random.nextDouble(), random.nextDouble()));
-        }
+        allocList(SIZE);
+        allocVector(SIZE);
+    }
 
-        pointsVector = new StructVector<>(PointStruct.class, SIZE);
+    private void allocVector(int size) {
+        StructVector<PointStruct> pointsVector = new StructVector<>(PointStruct.class, size);
         pointsAccessor = pointsVector.accessor();
         for (int i = 0; i < SIZE; i++) {
             pointsVector.insertLast();
@@ -48,10 +49,43 @@ public class Benchmarks {
         }
     }
 
+    private void allocList(int size) {
+        pointsList = new ArrayList<>(size);
+        for (int i = 0; i < SIZE; i++) {
+            pointsList.add(new Point(random.nextDouble(), random.nextDouble()));
+        }
+    }
+
     @Benchmark
     @BenchmarkMode(Mode.AverageTime)
     @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public void pointsObject() {
+        double result = 0.0;
+        for (int i = 0; i < SIZE; i++) {
+            result += pointsList.get(i).square();
+        }
+        publishResult = result;
+    }
+
+    @Benchmark
+    @BenchmarkMode(Mode.AverageTime)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    public void pointsObjectWithAlloc() {
+        allocList(SIZE);
+
+        double result = 0.0;
+        for (int i = 0; i < SIZE; i++) {
+            result += pointsList.get(i).square();
+        }
+        publishResult = result;
+    }
+
+    @Benchmark
+    @BenchmarkMode(Mode.AverageTime)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    public void pointsObjectWithAllocSmall() {
+        allocList(16);
+
         double result = 0.0;
         for (int i = 0; i < SIZE; i++) {
             result += pointsList.get(i).square();
@@ -74,7 +108,35 @@ public class Benchmarks {
     @Benchmark
     @BenchmarkMode(Mode.AverageTime)
     @OutputTimeUnit(TimeUnit.MICROSECONDS)
-    public void pointsIndexedStruct() {
+    public void pointsStructWithAlloc() {
+        allocVector(SIZE);
+
+        double result = 0.0;
+        for (int i = 0; i < SIZE; i++) {
+            pointsAccessor.current(i);
+            result += pointsAccessor.square();
+        }
+        publishResult = result;
+    }
+
+    @Benchmark
+    @BenchmarkMode(Mode.AverageTime)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    public void pointsStructWithAllocSmall() {
+        allocVector(16);
+
+        double result = 0.0;
+        for (int i = 0; i < SIZE; i++) {
+            pointsAccessor.current(i);
+            result += pointsAccessor.square();
+        }
+        publishResult = result;
+    }
+
+    @Benchmark
+    @BenchmarkMode(Mode.AverageTime)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    public void pointsStructIndexed() {
         double result = 0.0;
         for (int i = 0; i < SIZE; i++) {
             result += pointsAccessor.square(i);
@@ -83,6 +145,15 @@ public class Benchmarks {
     }
 
     public static void main(String args[]) throws RunnerException {
-        new Runner(new OptionsBuilder().include(Benchmarks.class.getSimpleName()).forks(1).build()).run();
+        Options options = new OptionsBuilder()
+                .include(Benchmarks.class.getSimpleName())
+                .forks(1)
+                .build();
+        new Runner(options).run();
+    }
+
+    @Test
+    public void pointsStructWithAllocTest() {
+        pointsStructWithAlloc();
     }
 }

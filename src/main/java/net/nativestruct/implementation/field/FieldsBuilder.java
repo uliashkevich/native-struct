@@ -38,7 +38,7 @@ import net.nativestruct.StructField;
 /**
  * {@link net.nativestruct.implementation.field.Fields} builder object.
  */
-public class FieldsBuilder {
+class FieldsBuilder {
 
     private final Class<?> type;
     private final FieldCounter counter;
@@ -66,7 +66,7 @@ public class FieldsBuilder {
      *
      * @param type Struct type.
      */
-    public FieldsBuilder(Class<?> type) {
+    FieldsBuilder(Class<?> type) {
         this(type, -1, new FieldCounter(), Collections.emptyList());
     }
 

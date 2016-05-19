@@ -18,6 +18,10 @@ public abstract class PointStruct extends AbstractStruct {
     public abstract void setX(double value);
     @StructField
     public abstract void setY(double value);
+    @StructField(accessor = AccessorType.SETTER_INDEXED)
+    public abstract void setX(int index, double value);
+    @StructField(accessor = AccessorType.SETTER_INDEXED)
+    public abstract void setY(int index, double value);
 
     public double square() {
         double x = getX();

@@ -46,9 +46,6 @@ public abstract class AbstractImplementation implements Implementation {
     public static final MethodList<MethodDescription.InDefinedShape> STRUCT_METHODS
             = STRUCT_TYPE.getDeclaredMethods();
 
-    public static final MethodDescription.InDefinedShape CHECK_INDEX_BOUNDS
-            = STRUCT_METHODS.filter(named("checkIndexBounds")).getOnly();
-
     public static final MethodDescription.InDefinedShape INT_FIELD_GETTER
             = STRUCT_METHODS.filter(named("intFieldIndexed")).getOnly();
     public static final MethodDescription.InDefinedShape INT_FIELD_SETTER

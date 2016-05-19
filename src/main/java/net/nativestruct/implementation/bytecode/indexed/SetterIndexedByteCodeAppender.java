@@ -32,7 +32,6 @@ import net.bytebuddy.implementation.bytecode.member.MethodInvocation;
 import net.bytebuddy.implementation.bytecode.member.MethodReturn;
 import net.bytebuddy.implementation.bytecode.member.MethodVariableAccess;
 import net.bytebuddy.jar.asm.MethodVisitor;
-import net.nativestruct.implementation.bytecode.AbstractImplementation;
 
 /**
  * Bytecode generator of the int field setter.
@@ -68,9 +67,6 @@ public final class SetterIndexedByteCodeAppender implements ByteCodeAppender {
                       MethodDescription method) {
 
         StackManipulation.Size stackSize = new StackManipulation.Compound(
-                MethodVariableAccess.REFERENCE.loadOffset(0),
-                MethodVariableAccess.INTEGER.loadOffset(1),
-                MethodInvocation.invoke(AbstractImplementation.CHECK_INDEX_BOUNDS),
                 MethodVariableAccess.REFERENCE.loadOffset(0),
                 IntegerConstant.forValue(fields),
                 MethodVariableAccess.INTEGER.loadOffset(1),
