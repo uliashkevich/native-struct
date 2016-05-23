@@ -27,72 +27,73 @@ import java.util.function.BiConsumer;
 
 import net.nativestruct.StructVector;
 import net.nativestruct.implementation.field.Field;
-import net.nativestruct.sorting.IndexedFieldComparator;
-import net.nativestruct.sorting.SortedProjection;
 
 /**
- * Performs reduce operation over a vector of structs.
+ * Performs reduce operation over a vector of structs. It iterates over source vector, searches
+ * the key in the target vector and then accumulates the result.
  *
  * @param <T> Struct accessor type.
  */
-public class Reduce<T> {
+public final class InsertionReducer<T> implements Reducer<T> {
     private final StructVector<T> source;
-    private final SortedProjection<T> projection;
+    private final Field field;
     private StructVector<T> target;
 
     /**
      * Constructs Reduce instance grouping records by the given field.
      *
-     * @param vector Struct vector.
+     * @param source Struct vector.
      * @param field Field by which grouping is performed.
      */
-    public Reduce(StructVector<T> vector, Field field) {
-        this.source = vector;
-        this.projection = new SortedProjection<>(source, field);
+    public InsertionReducer(StructVector<T> source, Field field) {
+        this.source = source;
+        this.field = field;
     }
 
     /**
-     * Assigns target vector before performing reduce operation.
+     * Constructs Reduce instance grouping records by the given field.
      *
-     * @param vector The instance of struct vector for storing reduce result.
-     * @return This instance.
+     * @param source Struct vector.
+     * @param field Field by which grouping is performed.
      */
-    public final Reduce<T> into(StructVector<T> vector) {
+    public InsertionReducer(StructVector<T> source, String field) {
+        this(source, source.field(field));
+    }
+
+    @Override
+    public Reducer<T> into(StructVector<T> vector) {
         this.target = vector;
         return this;
     }
 
-    /**
-     * Performs reduce by applying the specified reduction consumer.
-     *
-     * @param consumer The first parameter is accumulator,
-     *                 the second parameter is value being reduced.
-     * @return Struct vector with the reduce result.
-     */
-    public final StructVector<T> with(BiConsumer<T, T> consumer) {
+    @Override
+    public StructVector<T> with(BiConsumer<T, T> consumer) {
         target.resize(0);
-        T sourceAccessor = projection.accessor();
+
+        T sourceAccessor = source.accessor();
         T targetAccessor = target.accessor();
 
-        IndexedFieldComparator comparator = projection.substitution().comparator();
-
         int size = source.size();
-        int index = 0;
-        while (index < size) {
-            int accIndex = projection.sourceIndex(index);
+        for (int sourceIndex = 0; sourceIndex < size; sourceIndex++) {
+            int targetIndex;
+            if (field.isType(int.class)) {
+                targetIndex = target.binarySearch(
+                        field, source.fieldValueInteger(field, sourceIndex));
+            } else if (field.isType(double.class)) {
+                targetIndex = target.binarySearch(
+                        field, source.fieldValueDouble(field, sourceIndex));
+            } else {
+                targetIndex = target.binarySearch(
+                        field, (Comparable) source.fieldValueObject(field, sourceIndex));
+            }
 
-            source.current(accIndex);
-            target.insertLast();
-
-            target.updateFrom(target.size() - 1, source, accIndex);
-
-            while (++index < size) {
-                int sourceIndex = projection.sourceIndex(index);
-                if (!comparator.lessOrEqual(sourceIndex, accIndex)) {
-                    break;
-                }
-
+            if (targetIndex < 0) {
+                targetIndex = -1 - targetIndex;
+                target.insert(targetIndex, 1);
+                target.updateFrom(targetIndex, source, sourceIndex);
+            } else {
                 source.current(sourceIndex);
+                target.current(targetIndex);
                 consumer.accept(targetAccessor, sourceAccessor);
             }
         }

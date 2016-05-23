@@ -524,6 +524,7 @@ public class StructVectorTest {
         struct.insertLast();
         struct.insertLast();
         struct.insertLast();
+        struct.insertLast();
         struct.current(2);
         struct.accessor().setInt(55);
         struct.current(4);

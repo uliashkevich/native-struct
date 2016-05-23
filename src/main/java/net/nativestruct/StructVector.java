@@ -29,7 +29,8 @@ import java.util.List;
 
 import net.nativestruct.implementation.field.Field;
 import net.nativestruct.implementation.field.Fields;
-import net.nativestruct.mapreduce.Reduce;
+import net.nativestruct.mapreduce.InsertionReducer;
+import net.nativestruct.mapreduce.Reducer;
 import net.nativestruct.sorting.AbstractSortedSubstitution;
 import net.nativestruct.sorting.OrderingSubstitution;
 import net.nativestruct.sorting.SortedProjection;
@@ -137,7 +138,7 @@ public final class StructVector<T> implements StructProjection<T> {
      * @return New vector capacity based on the existing capacity and grow factor.
      */
     private int alignCapacity(int size) {
-        return Math.max(size, (int)(capacity * GROW_FACTOR));
+        return Math.max(size, (int) Math.ceil(capacity * GROW_FACTOR));
     }
 
     /**
@@ -397,8 +398,8 @@ public final class StructVector<T> implements StructProjection<T> {
      * @param field Field name for which the reduce operation will be performed.
      * @return New reducer builder object.
      */
-    public Reduce<T> reduceBy(String field) {
-        return new Reduce<>(this, field(field));
+    public Reducer<T> reduceBy(String field) {
+        return new InsertionReducer<T>(this, field);
     }
 
     /**
@@ -427,6 +428,42 @@ public final class StructVector<T> implements StructProjection<T> {
             System.arraycopy(source.objects(), sourceIndex * objectFields,
                     objects(), targetIndex * objectFields, objectFields);
         }
+    }
+
+    /**
+     * Retrieve integer field value.
+     *
+     * @param field Field object.
+     * @param index Record index.
+     * @return Integer value of the field.
+     */
+    public int fieldValueInteger(Field field, int index) {
+        checkIndexBounds(index);
+        return accessors[0].intFieldIndexed(fields.intFields(), index, field.index());
+    }
+
+    /**
+     * Retrieve double field value.
+     *
+     * @param field Field object.
+     * @param index Record index.
+     * @return Double value of the field.
+     */
+    public double fieldValueDouble(Field field, int index) {
+        checkIndexBounds(index);
+        return accessors[0].doubleFieldIndexed(fields.doubleFields(), index, field.index());
+    }
+
+    /**
+     * Retrieve object field value.
+     *
+     * @param field Field object.
+     * @param index Record index.
+     * @return Object value of the field.
+     */
+    public Object fieldValueObject(Field field, int index) {
+        checkIndexBounds(index);
+        return accessors[0].objectFieldIndexed(fields.objectFields(), index, field.index());
     }
 
     /**

@@ -2,15 +2,27 @@ package net.nativestruct;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.BiFunction;
 
+import net.nativestruct.mapreduce.InsertionReducer;
+import net.nativestruct.mapreduce.Reducer;
+import net.nativestruct.mapreduce.SortingReducer;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 
 public class MapReduceTest {
     @Test
-    public void wordCount() {
+    public void wordCountSortingTest() {
+        runWordCount(SortingReducer::new);
+    }
 
+    @Test
+    public void wordCountInsertionTest() {
+        runWordCount(InsertionReducer::new);
+    }
+
+    private void runWordCount(BiFunction<StructVector<WordCount>, String, Reducer<WordCount>> reducerF) {
         StructVector<WordCount> words = new StructVector<>(WordCount.class);
 
         List<String> lines = Arrays.asList("word count is a simple application",
@@ -25,10 +37,10 @@ public class MapReduceTest {
             }
         }
 
-        StructVector<WordCount> wordCounts = words.reduceBy("word")
+        StructVector<WordCount> wordCounts = reducerF.apply(words, "word")
                 .into(new StructVector<>(WordCount.class))
                 .with((accumulator, value)
-                    -> accumulator.setCount(accumulator.getCount() + value.getCount()));
+                        -> accumulator.setCount(accumulator.getCount() + value.getCount()));
 
         wordCounts.current(0);
         assertEquals("a", wordCounts.accessor().getWord());
